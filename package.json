@@ -1,0 +1,56 @@
+{
+  "name": "wolf-attendance",
+  "productName": "WOLF Attendance",
+  "version": "3.0.0",
+  "description": "Minimum-days attendance planner — tells you the fewest college days to attend while keeping every subject (lectures and labs) above its attendance requirement. Electron + React + Express.",
+  "main": "main.js",
+  "author": "Patel",
+  "license": "MIT",
+  "private": true,
+  "keywords": [
+    "attendance",
+    "timetable",
+    "planner",
+    "college",
+    "electron",
+    "react",
+    "desktop"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "electron .",
+    "client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client install && npm --prefix client run build",
+    "dist": "npm run build:client && electron-builder"
+  },
+  "build": {
+    "appId": "com.wolf.attendance",
+    "productName": "WOLF Attendance",
+    "asar": false,
+    "files": [
+      "main.js",
+      "server/**/*",
+      "client/dist/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "WOLF-Attendance-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "WOLF Attendance"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
