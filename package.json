@@ -1,56 +1,53 @@
 {
   "name": "wolf-attendance",
   "productName": "WOLF Attendance",
-  "version": "3.0.0",
-  "description": "Minimum-days attendance planner — tells you the fewest college days to attend while keeping every subject (lectures and labs) above its attendance requirement. Electron + React + Express.",
-  "main": "main.js",
+  "version": "3.1.0",
+  "description": "Minimum-days attendance planner — tells you the fewest college days to attend while keeping every subject (lectures and labs) above its attendance requirement. Tauri + React + Rust.",
   "author": "Patel",
   "license": "MIT",
   "private": true,
+  "type": "module",
   "keywords": [
     "attendance",
     "timetable",
     "planner",
     "college",
-    "electron",
+    "tauri",
+    "rust",
     "react",
     "desktop"
   ],
-  "engines": {
-    "node": ">=18"
-  },
   "scripts": {
-    "start": "electron .",
-    "client": "npm --prefix client run dev",
-    "build:client": "npm --prefix client install && npm --prefix client run build",
-    "dist": "npm run build:client && electron-builder"
-  },
-  "build": {
-    "appId": "com.wolf.attendance",
-    "productName": "WOLF Attendance",
-    "asar": false,
-    "files": [
-      "main.js",
-      "server/**/*",
-      "client/dist/**/*"
-    ],
-    "win": {
-      "target": "nsis",
-      "artifactName": "WOLF-Attendance-Setup-${version}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "shortcutName": "WOLF Attendance"
-    }
-  },
-  "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "@radix-ui/react-dialog": "^1.1.19",
+    "@radix-ui/react-dropdown-menu": "^2.1.20",
+    "@radix-ui/react-popover": "^1.1.19",
+    "@radix-ui/react-slot": "^1.3.0",
+    "@radix-ui/react-tabs": "^1.1.17",
+    "@radix-ui/react-tooltip": "^1.2.12",
+    "@tauri-apps/api": "^2",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.25.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13",
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.6.3",
+    "vite": "^6.3.5"
   }
 }

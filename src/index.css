@@ -1,0 +1,387 @@
+/* ============================================================================
+   WOLF Attendance — Design System
+   A dual-identity theme engine. Two products in one:
+     · data-institution="college"  → premium, minimal, glass  (Apple / Linear / Arc)
+     · data-institution="school"    → playful, warm, notebook  (Duolingo / Disney)
+   Each crossed with data-theme="light|dark". Every surface consumes tokens,
+   so flipping the mode transforms the ENTIRE app automatically.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&family=Outfit:wght@500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+/* ===================== COLLEGE · LIGHT (default) ===================== */
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #eef1f8;
+  --bg-2: #f6f8fd;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(255, 255, 255, 0.5);
+  --surface-3: rgba(15, 23, 42, 0.04);
+  --surface-solid: #ffffff;
+  --border: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --card-hi: rgba(255, 255, 255, 0.9);
+
+  /* Text */
+  --text: #0b1220;
+  --text-2: #475069;
+  --text-3: #8a93a8;
+
+  /* Accent — indigo → violet */
+  --accent: #5b5bf0;
+  --accent-2: #8b5cf6;
+  --accent-3: #6366f1;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(91, 91, 240, 0.12);
+  --grad: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  --grad-warm: linear-gradient(135deg, #6366f1, #a855f7);
+
+  /* Semantic */
+  --go: #10b981;
+  --skip: #f59e0b;
+  --buffer: #3b82f6;
+  --warn: #eab308;
+  --danger: #ef4444;
+  --lab: #8b5cf6;
+  --holiday: #94a3b8;
+
+  /* Glass */
+  --glass-blur: blur(28px) saturate(140%);
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.55);
+
+  /* Radii — measured, premium */
+  --r-xs: 10px;
+  --r-sm: 14px;
+  --r: 20px;
+  --r-lg: 28px;
+  --r-xl: 36px;
+  --r-pill: 999px;
+
+  /* Shadows — soft, tight, cool */
+  --shadow-color: 224 40% 30%;
+  --shadow-sm: 0 1px 2px -1px hsl(var(--shadow-color) / 0.10), 0 2px 8px -2px hsl(var(--shadow-color) / 0.08);
+  --shadow: 0 4px 12px -4px hsl(var(--shadow-color) / 0.14), 0 12px 32px -8px hsl(var(--shadow-color) / 0.12);
+  --shadow-lg: 0 8px 24px -8px hsl(var(--shadow-color) / 0.18), 0 24px 56px -16px hsl(var(--shadow-color) / 0.18);
+  --shadow-glow: 0 12px 40px -8px var(--accent-soft);
+  --ring: 0 0 0 4px var(--accent-soft);
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur: 0.28s;
+
+  /* Texture layers (college = clean mesh, no paper) */
+  --texture: none;
+  --texture-size: 0 0;
+  --dock-radius: var(--r-lg);
+  --hero-radius: var(--r-xl);
+}
+
+/* ===================== COLLEGE · DARK ===================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #080a12;
+  --bg-2: #0e1220;
+  --surface: rgba(27, 32, 49, 0.88);
+  --surface-2: rgba(39, 45, 66, 0.75);
+  --surface-3: rgba(255, 255, 255, 0.07);
+  --surface-solid: #181d2b;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  --text: #f4f6fb;
+  --text-2: #aab3c9;
+  --text-3: #737d95;
+
+  --accent: #7c7cff;
+  --accent-2: #a78bfa;
+  --accent-3: #818cf8;
+  --accent-soft: rgba(124, 124, 255, 0.18);
+
+  --glass-bg: rgba(24, 29, 45, 0.86);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.12);
+  --card-hi: rgba(255, 255, 255, 0.07);
+
+  --shadow-color: 230 60% 2%;
+  --shadow-sm: 0 1px 2px -1px rgba(0,0,0,0.5), 0 2px 10px -2px rgba(0,0,0,0.45);
+  --shadow: 0 8px 24px -8px rgba(0,0,0,0.6), 0 16px 48px -16px rgba(0,0,0,0.55);
+  --shadow-lg: 0 16px 40px -12px rgba(0,0,0,0.7), 0 32px 80px -24px rgba(0,0,0,0.6);
+}
+
+/* ===================== SCHOOL · LIGHT ===================== */
+:root[data-institution="school"] {
+  color-scheme: light;
+
+  --bg: #eef3ff;
+  --bg-2: #fdf3f8;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.62);
+  --surface-3: rgba(99, 91, 255, 0.06);
+  --surface-solid: #ffffff;
+  --border: rgba(30, 27, 75, 0.11);
+  --border-strong: rgba(30, 27, 75, 0.18);
+  --card-hi: rgba(255, 255, 255, 0.95);
+
+  --text: #241c4e;
+  --text-2: #5b5286;
+  --text-3: #9990c0;
+
+  /* Candy accent — friendly violet → coral */
+  --accent: #6d5efc;
+  --accent-2: #ff6b9d;
+  --accent-3: #ffb020;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(109, 94, 252, 0.14);
+  --grad: linear-gradient(135deg, #6d5efc 0%, #a855f7 50%, #ff6b9d 100%);
+  --grad-warm: linear-gradient(135deg, #ff9a3d, #ff6b9d);
+
+  --go: #22c55e;
+  --skip: #fb923c;
+  --buffer: #38bdf8;
+  --warn: #fbbf24;
+  --danger: #fb7185;
+  --lab: #a855f7;
+  --holiday: #cbb8e6;
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.7);
+
+  /* Rounder, bouncier, chunky "sticker" shadows */
+  --r-xs: 12px;
+  --r-sm: 18px;
+  --r: 24px;
+  --r-lg: 32px;
+  --r-xl: 42px;
+
+  --shadow-color: 255 60% 55%;
+  --shadow-sm: 0 2px 0 0 hsl(255 50% 88% / 0.7), 0 4px 14px -4px hsl(var(--shadow-color) / 0.18);
+  --shadow: 0 4px 0 0 hsl(255 50% 90% / 0.9), 0 14px 30px -8px hsl(var(--shadow-color) / 0.22);
+  --shadow-lg: 0 8px 0 0 hsl(255 55% 90% / 0.9), 0 26px 56px -14px hsl(var(--shadow-color) / 0.28);
+  --shadow-glow: 0 16px 44px -8px rgba(109, 94, 252, 0.35);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Baloo 2', 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  --ease-spring: cubic-bezier(0.34, 1.7, 0.5, 1);
+  --dur: 0.32s;
+
+  /* Notebook paper lines */
+  --texture:
+    repeating-linear-gradient(to bottom, transparent 0 31px, rgba(109, 94, 252, 0.07) 31px 32px);
+  --texture-size: auto;
+  --dock-radius: var(--r-xl);
+  --hero-radius: var(--r-xl);
+}
+
+/* ===================== SCHOOL · DARK ===================== */
+:root[data-institution="school"][data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #160f2e;
+  --bg-2: #22144d;
+  --surface: rgba(50, 41, 96, 0.88);
+  --surface-2: rgba(63, 52, 116, 0.75);
+  --surface-3: rgba(255, 255, 255, 0.07);
+  --surface-solid: #291d55;
+  --border: rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  --text: #f6f2ff;
+  --text-2: #c8beef;
+  --text-3: #948ac6;
+
+  --accent: #8b7cff;
+  --accent-2: #ff87b0;
+  --accent-3: #ffc24d;
+  --accent-soft: rgba(139, 124, 255, 0.22);
+
+  --glass-bg: rgba(48, 39, 92, 0.85);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.13);
+  --card-hi: rgba(255, 255, 255, 0.08);
+
+  --shadow-color: 260 70% 3%;
+  --shadow-sm: 0 2px 0 0 rgba(139,124,255,0.14), 0 4px 16px -4px rgba(0,0,0,0.5);
+  --shadow: 0 4px 0 0 rgba(139,124,255,0.16), 0 16px 34px -8px rgba(0,0,0,0.55);
+  --shadow-lg: 0 8px 0 0 rgba(139,124,255,0.16), 0 28px 60px -14px rgba(0,0,0,0.6);
+  --shadow-glow: 0 16px 44px -8px rgba(139, 124, 255, 0.4);
+
+  --texture:
+    repeating-linear-gradient(to bottom, transparent 0 31px, rgba(139, 124, 255, 0.08) 31px 32px);
+}
+
+/* ===================== Reset ===================== */
+/* NOTE: keep box-sizing in @layer base so it never overrides Tailwind's
+   padding/margin utilities. An unlayered `* { margin:0; padding:0 }` would
+   win the cascade over EVERY p-*/m-*/space-y-* utility. Tailwind preflight
+   already zeroes default element margins for us. */
+@layer base {
+  *, ::before, ::after { box-sizing: border-box; }
+}
+html, body, #root { height: 100%; width: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15.5px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  user-select: none;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+
+h1, h2, h3, h4, .font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
+
+::selection { background: var(--accent-soft); color: var(--text); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
+
+.scroll-area { scrollbar-gutter: stable; }
+
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 8px; }
+button, select, input, textarea { font-family: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: none; }
+a { color: inherit; text-decoration: none; }
+
+/* ===================== Range input ===================== */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  height: 8px; border-radius: 999px;
+  background: var(--surface-3); outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); border: 4px solid var(--surface-solid);
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  transition: transform 0.16s var(--ease-spring);
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.18); }
+
+/* ===================== Reusable utility classes ===================== */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+}
+.card-surface {
+  background: var(--surface);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.text-gradient {
+  background: var(--grad);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.paper-lines { background-image: var(--texture); }
+/* premium 1px inner top highlight — the glass "edge of light" */
+.edge-hi::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  box-shadow: inset 0 1px 0 0 var(--card-hi, transparent);
+  pointer-events: none; z-index: 1; opacity: 0.8;
+}
+.dot-grid {
+  background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.tabnums { font-variant-numeric: tabular-nums; }
+.no-drag { -webkit-user-drag: none; }
+
+/* Unified form field — every text bar in the app shares this look */
+.field {
+  width: 100%; height: 2.75rem; padding: 0 1rem;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  font-weight: 600; color: var(--text);
+  outline: none;
+  transition: border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), background 0.18s var(--ease-out);
+}
+.field::placeholder { color: var(--text-3); font-weight: 500; }
+.field:focus { border-color: var(--accent); background: var(--surface-solid); box-shadow: 0 0 0 4px var(--accent-soft); }
+select.field { cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%238a93a8' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 0.9rem center; padding-right: 2.4rem; }
+textarea.field { height: auto; padding: 0.7rem 1rem; resize: vertical; }
+.field-lg { height: 3.25rem; border-width: 2px; border-radius: var(--r); }
+
+/* Gradient border ring (for premium cards / login) */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2), transparent 60%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none; opacity: 0.9;
+}
+
+/* Sheen sweep used on primary buttons */
+.sheen { position: relative; overflow: hidden; }
+.sheen::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.7s var(--ease-out);
+  pointer-events: none;
+}
+.sheen:hover::after { transform: translateX(120%); }
+
+/* ===================== Keyframes ===================== */
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes floatSlow { 0%,100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(-18px) translateX(6px); } }
+@keyframes bob { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+@keyframes pulseGlow { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes gradientMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+@keyframes drift { from { transform: translateX(-15vw); } to { transform: translateX(115vw); } }
+@keyframes fly {
+  0%   { transform: translate(-10vw, 12vh) rotate(8deg); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate(112vw, -12vh) rotate(-6deg); opacity: 0; }
+}
+@keyframes spinSlow { to { transform: rotate(360deg); } }
+@keyframes pop { 0% { transform: scale(0.7); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes auroraShift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(4%, -3%) scale(1.08); }
+  66% { transform: translate(-3%, 4%) scale(0.96); }
+}
+
+.anim-float { animation: float 6s var(--ease-out) infinite; }
+.anim-float-slow { animation: floatSlow 9s ease-in-out infinite; }
+.anim-bob { animation: bob 4s ease-in-out infinite; }
+.anim-spin-slow { animation: spinSlow 18s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
