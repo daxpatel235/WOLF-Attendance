@@ -30,10 +30,21 @@ pub const LAB_WEIGHT: i64 = 3;
 pub const LECTURE_WEIGHT: i64 = 1;
 
 pub const WEEKDAYS: [&str; 7] = [
-    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
 ];
 const DAYS: [&str; 6] = [
-    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
 ];
 
 pub const MARK_ATTENDED: &str = "attended";
@@ -159,7 +170,10 @@ pub struct Attendance {
 
 impl Attendance {
     pub fn from_days(days: &HashMap<String, String>) -> Self {
-        Self { days: days.clone(), subjects: HashMap::new() }
+        Self {
+            days: days.clone(),
+            subjects: HashMap::new(),
+        }
     }
     fn day_mark(&self, date: &str) -> Option<&str> {
         self.days.get(date).map(|s| s.as_str())
@@ -326,7 +340,10 @@ fn merge_subjects(list: &[TtSubject]) -> Vec<TtSubject> {
             }
         }
     }
-    order.into_iter().filter_map(|k| by_key.remove(&k)).collect()
+    order
+        .into_iter()
+        .filter_map(|k| by_key.remove(&k))
+        .collect()
 }
 
 fn score_day(
@@ -410,7 +427,9 @@ pub fn compute_plan_with(
         .collect();
     if subjects.is_empty() {
         result.message = match mode {
-            "lectures" => "Your timetable has no lecture subjects for the current attendance mode.".into(),
+            "lectures" => {
+                "Your timetable has no lecture subjects for the current attendance mode.".into()
+            }
             "labs" => "Your timetable has no lab subjects for the current attendance mode.".into(),
             _ => "No timetable has been imported yet.".into(),
         };
@@ -425,12 +444,27 @@ pub fn compute_plan_with(
     let mut weight_of: HashMap<String, i64> = HashMap::new();
     for s in &subjects {
         let k = subject_key(s);
-        let kind = if s.kind.is_empty() { "lecture".to_string() } else { s.kind.clone() };
-        weight_of.insert(k.clone(), if kind == "lab" { LAB_WEIGHT } else { LECTURE_WEIGHT });
+        let kind = if s.kind.is_empty() {
+            "lecture".to_string()
+        } else {
+            s.kind.clone()
+        };
+        weight_of.insert(
+            k.clone(),
+            if kind == "lab" {
+                LAB_WEIGHT
+            } else {
+                LECTURE_WEIGHT
+            },
+        );
         kind_of.insert(k.clone(), kind);
         color_of.insert(
             k.clone(),
-            if s.color.is_empty() { "#6B6560".to_string() } else { s.color.clone() },
+            if s.color.is_empty() {
+                "#6B6560".to_string()
+            } else {
+                s.color.clone()
+            },
         );
         code_of.insert(k.clone(), s.code.clone());
         name_of.insert(k.clone(), s.name.clone());
@@ -458,7 +492,10 @@ pub fn compute_plan_with(
         }
     }
     for d in DAYS {
-        sessions_by_wd.get_mut(d).unwrap().sort_by(|a, b| a.start.cmp(&b.start));
+        sessions_by_wd
+            .get_mut(d)
+            .unwrap()
+            .sort_by(|a, b| a.start.cmp(&b.start));
     }
 
     // Tracking window. Empty => WOLF owns the whole semester (legacy behaviour).
@@ -496,7 +533,12 @@ pub fn compute_plan_with(
                 total += n;
             }
         }
-        college_days.push(CollegeDay { date: date.clone(), weekday: wd, lectures, total });
+        college_days.push(CollegeDay {
+            date: date.clone(),
+            weekday: wd,
+            lectures,
+            total,
+        });
     }
 
     // 2. Totals + thresholds. Only tracked days count; the baseline covers the rest.
@@ -599,7 +641,7 @@ pub fn compute_plan_with(
                 || (score == best_score && covered > best_cov)
                 || (score == best_score
                     && covered == best_cov
-                    && best.map_or(false, |b| {
+                    && best.is_some_and(|b| {
                         compare_iso(&day.date, &candidates[b].date) == Ordering::Less
                     }));
             if replace {
@@ -667,7 +709,7 @@ pub fn compute_plan_with(
             }
             let replace = score > best_score
                 || (score == best_score
-                    && best.map_or(false, |b| {
+                    && best.is_some_and(|b| {
                         compare_iso(&day.date, &candidates[b].date) == Ordering::Less
                     }));
             if replace {
@@ -697,7 +739,11 @@ pub fn compute_plan_with(
         let category = if !in_tracking(&day.date) {
             "pre-tracking"
         } else if is_past {
-            if status == Some(MARK_SKIPPED) { "past-skipped" } else { "past-attended" }
+            if status == Some(MARK_SKIPPED) {
+                "past-skipped"
+            } else {
+                "past-attended"
+            }
         } else if status == Some(MARK_ATTENDED) {
             "attend"
         } else if status == Some(MARK_SKIPPED) {
@@ -723,7 +769,10 @@ pub fn compute_plan_with(
             .collect();
         let has_lab = subj_entries.iter().any(|e| e.kind == "lab");
         // Sessions are cached per weekday, so stamp the per-date mark on a clone.
-        let mut day_sessions = sessions_by_wd.get(&day.weekday).cloned().unwrap_or_default();
+        let mut day_sessions = sessions_by_wd
+            .get(&day.weekday)
+            .cloned()
+            .unwrap_or_default();
         for s in &mut day_sessions {
             s.mark = att.mark_for(&day.date, &s.key).map(|m| m.to_string());
         }
@@ -809,16 +858,25 @@ pub fn compute_plan_with(
             let total = total_lectures[&k];
             let cond = conducted[&k];
             let att_far = attended_so_far[&k];
-            let current_pct = if cond > 0 { (att_far as f64 / cond as f64) * 100.0 } else { 100.0 };
+            let current_pct = if cond > 0 {
+                (att_far as f64 / cond as f64) * 100.0
+            } else {
+                100.0
+            };
             let max_reachable = attended[&k] + future_remaining[&k];
-            let proj_min_pct = if total > 0 { (secured[&k] as f64 / total as f64) * 100.0 } else { 100.0 };
+            let proj_min_pct = if total > 0 {
+                (secured[&k] as f64 / total as f64) * 100.0
+            } else {
+                100.0
+            };
             let is_lab = kind_of[&k] == "lab";
             let req_pct = if is_lab { lab_percent } else { min_percent };
+            // "warning" covers two distinct situations: already below the
+            // requirement, or still able to pass but no longer able to reach the
+            // target buffer.
             let status = if max_reachable < min_needed[&k] {
                 "danger"
-            } else if cond > 0 && current_pct < req_pct {
-                "warning"
-            } else if max_reachable < target_needed[&k] {
+            } else if (cond > 0 && current_pct < req_pct) || max_reachable < target_needed[&k] {
                 "warning"
             } else {
                 "safe"
@@ -828,7 +886,11 @@ pub fn compute_plan_with(
                 name: subj.name.clone(),
                 code: code_of.get(&k).cloned().unwrap_or_default(),
                 kind: kind_of.get(&k).cloned().unwrap_or_else(|| "lecture".into()),
-                color: if subj.color.is_empty() { "#6B6560".into() } else { subj.color.clone() },
+                color: if subj.color.is_empty() {
+                    "#6B6560".into()
+                } else {
+                    subj.color.clone()
+                },
                 total_lectures: total,
                 min_needed: min_needed[&k],
                 target_needed: target_needed[&k],
@@ -846,7 +908,8 @@ pub fn compute_plan_with(
     subject_cards.sort_by(|a, b| {
         let ka = if a.kind == "lab" { 0 } else { 1 };
         let kb = if b.kind == "lab" { 0 } else { 1 };
-        ka.cmp(&kb).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        ka.cmp(&kb)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
 
     // 8. Banner
@@ -908,7 +971,11 @@ mod tests {
         let mut sessions = Vec::new();
         for (d, n) in sched {
             schedule.insert(d.to_string(), *n);
-            sessions.push(TtSession { day: d.to_string(), start: "09:00".into(), end: "10:00".into() });
+            sessions.push(TtSession {
+                day: d.to_string(),
+                start: "09:00".into(),
+                end: "10:00".into(),
+            });
         }
         TtSubject {
             name: name.into(),
@@ -924,7 +991,10 @@ mod tests {
         s
     }
     fn tt(subjects: Vec<TtSubject>) -> Option<Timetable> {
-        Some(Timetable { batch_name: "B1".into(), subjects })
+        Some(Timetable {
+            batch_name: "B1".into(),
+            subjects,
+        })
     }
     fn settings(start: &str, end: &str, min: f64, lab: f64, target: f64) -> Settings {
         Settings {
@@ -937,20 +1007,34 @@ mod tests {
         }
     }
     fn marks(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(d, s)| (d.to_string(), s.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(d, s)| (d.to_string(), s.to_string()))
+            .collect()
     }
     fn card<'a>(p: &'a Plan, name: &str) -> &'a SubjectCard {
-        p.subjects.iter().find(|c| c.name == name).expect("subject card")
+        p.subjects
+            .iter()
+            .find(|c| c.name == name)
+            .expect("subject card")
     }
     fn cat(p: &Plan, date: &str) -> String {
-        p.days.iter().find(|d| d.date == date).map(|d| d.category.clone()).unwrap_or_default()
+        p.days
+            .iter()
+            .find(|d| d.date == date)
+            .map(|d| d.category.clone())
+            .unwrap_or_default()
     }
 
     // ── 1. fresh semester ────────────────────────────────────────────────
     #[test]
     fn fresh_semester_requires_ceil_of_min_percent() {
         let s = settings(MON, "2026-01-09", 75.0, 70.0, 75.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let p = compute_plan(&s, &t, &HashMap::new(), MON);
         assert!(p.ready && p.feasible);
         let c = card(&p, "DS");
@@ -964,7 +1048,11 @@ mod tests {
     #[test]
     fn half_percent_needs_fewer_days_and_picks_earliest() {
         let s = settings(MON, "2026-01-09", 50.0, 50.0, 50.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let p = compute_plan(&s, &t, &HashMap::new(), MON);
         assert_eq!(card(&p, "DS").min_needed, 2);
         assert_eq!(p.banner.as_ref().unwrap().attend_days_count, 2);
@@ -988,7 +1076,11 @@ mod tests {
     fn full_year_is_consistent_and_fast() {
         let s = settings("2026-01-05", "2027-01-04", 75.0, 70.0, 85.0);
         let t = tt(vec![
-            subj("DS", "lecture", &[("Monday", 2), ("Wednesday", 2), ("Friday", 1)]),
+            subj(
+                "DS",
+                "lecture",
+                &[("Monday", 2), ("Wednesday", 2), ("Friday", 1)],
+            ),
             subj("Phy Lab", "lab", &[("Thursday", 2)]),
         ]);
         let p = compute_plan(&s, &t, &HashMap::new(), "2026-01-05");
@@ -1004,7 +1096,11 @@ mod tests {
     fn holidays_and_sundays_excluded_from_totals() {
         let mut s = settings(MON, "2026-01-09", 75.0, 70.0, 75.0);
         s.holidays = vec!["2026-01-07".into()];
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let p = compute_plan(&s, &t, &HashMap::new(), MON);
         assert_eq!(card(&p, "DS").total_lectures, 2);
         assert_eq!(cat(&p, "2026-01-07"), "holiday");
@@ -1014,7 +1110,11 @@ mod tests {
     #[test]
     fn detects_impossible_when_too_many_missed() {
         let s = settings(MON, "2026-01-09", 100.0, 100.0, 100.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let m = marks(&[("2026-01-05", "skipped")]);
         let p = compute_plan(&s, &t, &m, "2026-01-06");
         let c = card(&p, "DS");
@@ -1027,7 +1127,11 @@ mod tests {
     #[test]
     fn future_marks_are_respected() {
         let s = settings(MON, "2026-01-09", 50.0, 50.0, 50.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let m = marks(&[("2026-01-07", "skipped"), ("2026-01-09", "attended")]);
         let p = compute_plan(&s, &t, &m, MON);
         assert_eq!(cat(&p, "2026-01-07"), "skip-forced");
@@ -1039,7 +1143,11 @@ mod tests {
     fn labs_use_lab_percent_not_min_percent() {
         let s = settings(MON, "2026-01-09", 50.0, 100.0, 50.0);
         let t = tt(vec![
-            subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)]),
+            subj(
+                "DS",
+                "lecture",
+                &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+            ),
             subj("Lab", "lab", &[("Tuesday", 1), ("Thursday", 1)]),
         ]);
         let p = compute_plan(&s, &t, &HashMap::new(), MON);
@@ -1068,9 +1176,15 @@ mod tests {
     #[test]
     fn skippable_days_match_free_days() {
         let s = settings(MON, "2026-01-09", 50.0, 50.0, 50.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let p = compute_plan(&s, &t, &HashMap::new(), MON);
-        let free = p.days.iter()
+        let free = p
+            .days
+            .iter()
             .filter(|d| d.category == "skip" && d.subjects.iter().any(|x| x.name == "DS"))
             .count() as i64;
         assert_eq!(card(&p, "DS").can_still_skip_days, free);
@@ -1104,14 +1218,21 @@ mod tests {
         // 150% would demand more classes than exist => permanently impossible.
         let s = settings(MON, "2026-01-09", 150.0, -20.0, 999.0);
         let t = tt(vec![
-            subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)]),
+            subj(
+                "DS",
+                "lecture",
+                &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+            ),
             subj("Lab", "lab", &[("Tuesday", 2)]),
         ]);
         let p = compute_plan(&s, &t, &HashMap::new(), MON);
         let ds = card(&p, "DS");
         assert_eq!(ds.req_percent, 100.0, "150% clamps to 100%");
         assert_eq!(ds.min_needed, 3, "never more than the total that exists");
-        assert!(ds.min_needed <= ds.total_lectures, "INVARIANT: need <= total");
+        assert!(
+            ds.min_needed <= ds.total_lectures,
+            "INVARIANT: need <= total"
+        );
         let lab = card(&p, "Lab");
         assert_eq!(lab.req_percent, 0.0, "negative clamps to 0%");
         assert_eq!(lab.min_needed, 0);
@@ -1145,12 +1266,22 @@ mod tests {
     #[test]
     fn cancelled_day_is_not_conducted() {
         let s = settings(MON, "2026-01-09", 75.0, 70.0, 75.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let m = marks(&[("2026-01-07", "cancelled")]);
         let p = compute_plan(&s, &t, &m, "2026-01-09");
         let c = card(&p, "DS");
-        assert_eq!(c.total_lectures, 2, "the cancelled Wednesday never happened");
-        assert_eq!(c.conducted, 1, "only Monday actually took place before Friday");
+        assert_eq!(
+            c.total_lectures, 2,
+            "the cancelled Wednesday never happened"
+        );
+        assert_eq!(
+            c.conducted, 1,
+            "only Monday actually took place before Friday"
+        );
         assert_eq!(cat(&p, "2026-01-07"), "cancelled");
     }
 
@@ -1162,7 +1293,8 @@ mod tests {
             coded(subj("Phy", "lecture", &[("Monday", 1)]), "PH101"),
         ]);
         let mut a = Attendance::default();
-        a.subjects.insert((MON.to_string(), "CS201".into()), MARK_CANCELLED.into());
+        a.subjects
+            .insert((MON.to_string(), "CS201".into()), MARK_CANCELLED.into());
         let p = compute_plan_with(&s, &t, &a, "2026-01-06");
         assert_eq!(card(&p, "DS").total_lectures, 0, "DS was cancelled");
         assert_eq!(card(&p, "Phy").total_lectures, 1, "Phy still happened");
@@ -1174,11 +1306,18 @@ mod tests {
         // Monday has DS and Phy. Student attended DS, skipped Phy.
         let s = settings(MON, "2026-01-09", 50.0, 50.0, 50.0);
         let t = tt(vec![
-            coded(subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1)]), "CS201"),
-            coded(subj("Phy", "lecture", &[("Monday", 1), ("Wednesday", 1)]), "PH101"),
+            coded(
+                subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1)]),
+                "CS201",
+            ),
+            coded(
+                subj("Phy", "lecture", &[("Monday", 1), ("Wednesday", 1)]),
+                "PH101",
+            ),
         ]);
         let mut a = Attendance::default();
-        a.subjects.insert((MON.to_string(), "PH101".into()), MARK_SKIPPED.into());
+        a.subjects
+            .insert((MON.to_string(), "PH101".into()), MARK_SKIPPED.into());
         let p = compute_plan_with(&s, &t, &a, "2026-01-06"); // Monday is past
 
         assert_eq!(card(&p, "DS").attended_so_far, 1, "DS attended");
@@ -1198,19 +1337,35 @@ mod tests {
         let mut a = Attendance::default();
         // Whole day attended, except Physics which was individually skipped.
         a.days.insert(MON.to_string(), MARK_ATTENDED.into());
-        a.subjects.insert((MON.to_string(), "PH101".into()), MARK_SKIPPED.into());
+        a.subjects
+            .insert((MON.to_string(), "PH101".into()), MARK_SKIPPED.into());
         let p = compute_plan_with(&s, &t, &a, "2026-01-06");
         let day = p.days.iter().find(|d| d.date == MON).expect("monday");
 
-        let ds = day.subjects.iter().find(|x| x.key == "CS201").expect("DS entry");
-        let phy = day.subjects.iter().find(|x| x.key == "PH101").expect("Phy entry");
-        assert_eq!(ds.mark.as_deref(), Some(MARK_ATTENDED), "inherits the day mark");
+        let ds = day
+            .subjects
+            .iter()
+            .find(|x| x.key == "CS201")
+            .expect("DS entry");
+        let phy = day
+            .subjects
+            .iter()
+            .find(|x| x.key == "PH101")
+            .expect("Phy entry");
+        assert_eq!(
+            ds.mark.as_deref(),
+            Some(MARK_ATTENDED),
+            "inherits the day mark"
+        );
         assert_eq!(phy.mark.as_deref(), Some(MARK_SKIPPED), "override wins");
 
         // Sessions are cached per weekday — prove the per-date stamp is not shared.
         for sess in &day.sessions {
-            let expected =
-                if sess.key == "PH101" { MARK_SKIPPED } else { MARK_ATTENDED };
+            let expected = if sess.key == "PH101" {
+                MARK_SKIPPED
+            } else {
+                MARK_ATTENDED
+            };
             assert_eq!(sess.mark.as_deref(), Some(expected), "session {}", sess.key);
         }
     }
@@ -1222,9 +1377,19 @@ mod tests {
         // truthfully reports 12 of 18 attended so far.
         let mut s = settings("2026-01-05", "2026-02-27", 75.0, 70.0, 85.0);
         s.tracking_start = "2026-01-19".into();
-        s.baselines.insert("CS201".into(), Baseline { conducted: 18, attended: 12 });
+        s.baselines.insert(
+            "CS201".into(),
+            Baseline {
+                conducted: 18,
+                attended: 12,
+            },
+        );
         let t = tt(vec![coded(
-            subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)]),
+            subj(
+                "DS",
+                "lecture",
+                &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+            ),
             "CS201",
         )]);
         let p = compute_plan(&s, &t, &HashMap::new(), "2026-01-19");
@@ -1232,7 +1397,10 @@ mod tests {
 
         assert_eq!(c.conducted, 18, "the truth, not an assumption");
         assert_eq!(c.attended_so_far, 12);
-        assert_eq!(c.current_pct, 66.7, "12/18 — honestly below the 75% minimum");
+        assert_eq!(
+            c.current_pct, 66.7,
+            "12/18 — honestly below the 75% minimum"
+        );
         assert_eq!(c.status, "warning", "flagged, not silently 'safe'");
         // Days before tracking started are shown but never inferred.
         assert_eq!(cat(&p, "2026-01-07"), "pre-tracking");
@@ -1242,7 +1410,11 @@ mod tests {
     fn without_baseline_behaviour_is_unchanged() {
         // Legacy path must still work exactly as before.
         let s = settings("2026-01-05", "2026-02-27", 75.0, 70.0, 85.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let p = compute_plan(&s, &t, &HashMap::new(), "2026-01-19");
         let c = card(&p, "DS");
         assert!(c.conducted > 0);
@@ -1253,13 +1425,30 @@ mod tests {
     #[test]
     fn invariants_hold_across_many_configurations() {
         let subject_sets: Vec<Vec<TtSubject>> = vec![
-            vec![coded(subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 2)]), "A")],
+            vec![coded(
+                subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 2)]),
+                "A",
+            )],
             vec![
                 coded(subj("DS", "lecture", &[("Monday", 2), ("Friday", 1)]), "A"),
                 coded(subj("Lab", "lab", &[("Thursday", 2)]), "B"),
             ],
             vec![
-                coded(subj("A1", "lecture", &[("Monday", 1), ("Tuesday", 1), ("Wednesday", 1), ("Thursday", 1), ("Friday", 1), ("Saturday", 1)]), "A"),
+                coded(
+                    subj(
+                        "A1",
+                        "lecture",
+                        &[
+                            ("Monday", 1),
+                            ("Tuesday", 1),
+                            ("Wednesday", 1),
+                            ("Thursday", 1),
+                            ("Friday", 1),
+                            ("Saturday", 1),
+                        ],
+                    ),
+                    "A",
+                ),
                 coded(subj("B1", "lab", &[("Tuesday", 3)]), "B"),
                 coded(subj("C1", "lecture", &[("Saturday", 2)]), "C"),
             ],
@@ -1279,13 +1468,22 @@ mod tests {
                             // Never demand more classes than the semester holds.
                             assert!(
                                 c.min_needed <= c.total_lectures,
-                                "need {} > total {} for {}", c.min_needed, c.total_lectures, c.name
+                                "need {} > total {} for {}",
+                                c.min_needed,
+                                c.total_lectures,
+                                c.name
                             );
-                            assert!(c.target_needed >= c.min_needed, "target must not undercut minimum");
+                            assert!(
+                                c.target_needed >= c.min_needed,
+                                "target must not undercut minimum"
+                            );
                             assert!(c.target_needed <= c.total_lectures);
                             assert!((0.0..=100.0).contains(&c.current_pct));
                             assert!((0.0..=100.0).contains(&c.projected_min_pct));
-                            assert!(c.attended_so_far <= c.conducted, "cannot attend more than happened");
+                            assert!(
+                                c.attended_so_far <= c.conducted,
+                                "cannot attend more than happened"
+                            );
                             assert!(c.can_still_skip_days >= 0);
                             // A fresh semester with reachable targets is never impossible.
                             assert!(!c.impossible, "fresh semester should always be feasible");
@@ -1312,9 +1510,19 @@ mod tests {
         for (start, end, min, lab) in cases {
             let s = settings(start, end, min, lab, 85.0);
             let t = tt(vec![
-                coded(subj("DS", "lecture", &[("Monday", 2), ("Wednesday", 1), ("Friday", 1)]), "A"),
+                coded(
+                    subj(
+                        "DS",
+                        "lecture",
+                        &[("Monday", 2), ("Wednesday", 1), ("Friday", 1)],
+                    ),
+                    "A",
+                ),
                 coded(subj("Lab", "lab", &[("Thursday", 2)]), "B"),
-                coded(subj("Math", "lecture", &[("Tuesday", 1), ("Saturday", 2)]), "C"),
+                coded(
+                    subj("Math", "lecture", &[("Tuesday", 1), ("Saturday", 2)]),
+                    "C",
+                ),
             ]);
             let p = compute_plan(&s, &t, &HashMap::new(), start);
             assert!(p.feasible);
@@ -1331,14 +1539,23 @@ mod tests {
                 assert!(
                     secured >= c.min_needed,
                     "{} secured {} but needs {} ({}%, total {})",
-                    c.name, secured, c.min_needed, c.req_percent, c.total_lectures
+                    c.name,
+                    secured,
+                    c.min_needed,
+                    c.req_percent,
+                    c.total_lectures
                 );
                 let pct = if c.total_lectures > 0 {
                     secured as f64 / c.total_lectures as f64 * 100.0
                 } else {
                     100.0
                 };
-                assert!(pct + 1e-9 >= c.req_percent, "{} would finish at {:.1}%", c.name, pct);
+                assert!(
+                    pct + 1e-9 >= c.req_percent,
+                    "{} would finish at {:.1}%",
+                    c.name,
+                    pct
+                );
             }
         }
     }
@@ -1362,7 +1579,11 @@ mod tests {
     #[test]
     fn today_outside_the_semester_is_handled() {
         let s = settings(MON, "2026-01-09", 75.0, 70.0, 85.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1)],
+        )]);
 
         // Long before the semester: everything is still ahead.
         let before = compute_plan(&s, &t, &HashMap::new(), "2020-01-01");
@@ -1379,16 +1600,27 @@ mod tests {
     #[test]
     fn skipping_absolutely_everything_is_reported_not_crashed() {
         let s = settings(MON, "2026-01-09", 75.0, 70.0, 85.0);
-        let t = tt(vec![subj("DS", "lecture", &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)])]);
+        let t = tt(vec![subj(
+            "DS",
+            "lecture",
+            &[("Monday", 1), ("Wednesday", 1), ("Friday", 1)],
+        )]);
         let m = marks(&[
-            ("2026-01-05", "skipped"), ("2026-01-06", "skipped"), ("2026-01-07", "skipped"),
-            ("2026-01-08", "skipped"), ("2026-01-09", "skipped"),
+            ("2026-01-05", "skipped"),
+            ("2026-01-06", "skipped"),
+            ("2026-01-07", "skipped"),
+            ("2026-01-08", "skipped"),
+            ("2026-01-09", "skipped"),
         ]);
         let p = compute_plan(&s, &t, &m, MON);
         let c = card(&p, "DS");
         assert!(c.impossible && !p.feasible);
         assert_eq!(c.status, "danger");
-        assert_eq!(p.banner.unwrap().attend_days_count, 0, "nothing left to attend");
+        assert_eq!(
+            p.banner.unwrap().attend_days_count,
+            0,
+            "nothing left to attend"
+        );
     }
 
     #[test]
@@ -1417,11 +1649,18 @@ mod tests {
     struct Rng(u64);
     impl Rng {
         fn next(&mut self) -> u64 {
-            self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             self.0 >> 33
         }
         fn below(&mut self, n: u64) -> u64 {
-            if n == 0 { 0 } else { self.next() % n }
+            if n == 0 {
+                0
+            } else {
+                self.next() % n
+            }
         }
     }
 
@@ -1430,7 +1669,14 @@ mod tests {
         let mut rng = Rng(0x9E3779B97F4A7C15);
         let base = parse_iso("2026-01-01").unwrap();
         let kinds = ["lecture", "lab"];
-        let weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        let weekdays = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+        ];
 
         for _ in 0..2000 {
             // random semester window (sometimes inverted / single day)
@@ -1467,7 +1713,8 @@ mod tests {
 
             // random holidays
             for _ in 0..rng.below(6) {
-                set.holidays.push(to_iso(start + Duration::days(rng.below(60) as i64)));
+                set.holidays
+                    .push(to_iso(start + Duration::days(rng.below(60) as i64)));
             }
 
             // random baselines (always internally consistent)
@@ -1475,7 +1722,13 @@ mod tests {
                 for i in 0..n_sub {
                     let conducted = rng.below(50) as i64;
                     let attended = rng.below((conducted + 1) as u64) as i64;
-                    set.baselines.insert(format!("K{}", i), Baseline { conducted, attended });
+                    set.baselines.insert(
+                        format!("K{}", i),
+                        Baseline {
+                            conducted,
+                            attended,
+                        },
+                    );
                 }
                 set.tracking_start = to_iso(start + Duration::days(rng.below(40) as i64));
             }
@@ -1506,19 +1759,38 @@ mod tests {
                 assert!(c.total_lectures >= 0, "negative total");
                 assert!(
                     c.min_needed <= c.total_lectures,
-                    "min_needed {} > total {} ({})", c.min_needed, c.total_lectures, c.name
+                    "min_needed {} > total {} ({})",
+                    c.min_needed,
+                    c.total_lectures,
+                    c.name
                 );
-                assert!(c.target_needed >= c.min_needed, "target below minimum ({})", c.name);
-                assert!(c.target_needed <= c.total_lectures, "target above total ({})", c.name);
-                assert!(c.attended_so_far <= c.conducted, "attended > conducted ({})", c.name);
+                assert!(
+                    c.target_needed >= c.min_needed,
+                    "target below minimum ({})",
+                    c.name
+                );
+                assert!(
+                    c.target_needed <= c.total_lectures,
+                    "target above total ({})",
+                    c.name
+                );
+                assert!(
+                    c.attended_so_far <= c.conducted,
+                    "attended > conducted ({})",
+                    c.name
+                );
                 assert!(c.attended_so_far >= 0 && c.conducted >= 0);
                 assert!(
                     (0.0..=100.0).contains(&c.current_pct),
-                    "current_pct {} out of range ({})", c.current_pct, c.name
+                    "current_pct {} out of range ({})",
+                    c.current_pct,
+                    c.name
                 );
                 assert!(
                     (0.0..=100.0).contains(&c.projected_min_pct),
-                    "projected {} out of range ({})", c.projected_min_pct, c.name
+                    "projected {} out of range ({})",
+                    c.projected_min_pct,
+                    c.name
                 );
                 assert!(c.can_still_skip_days >= 0);
                 assert!(c.req_percent >= 0.0 && c.req_percent <= 100.0);
@@ -1540,7 +1812,11 @@ mod tests {
                     assert!(
                         c.projected_min_pct + 0.06 >= c.req_percent,
                         "plan projects {:.1}% for {} but it requires {:.1}% (total {}, need {})",
-                        c.projected_min_pct, c.name, c.req_percent, c.total_lectures, c.min_needed
+                        c.projected_min_pct,
+                        c.name,
+                        c.req_percent,
+                        c.total_lectures,
+                        c.min_needed
                     );
                 }
             }

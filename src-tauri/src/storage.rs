@@ -17,15 +17,18 @@ impl Store {
             .ok()
             .and_then(|txt| serde_json::from_str::<Data>(&txt).ok())
             .unwrap_or_default();
-        Store { dir: data_dir, file, data }
+        Store {
+            dir: data_dir,
+            file,
+            data,
+        }
     }
 
     /// Atomic write: serialize to `<file>.tmp`, then rename over the target.
     pub fn save(&self) -> std::io::Result<()> {
         fs::create_dir_all(&self.dir)?;
         let tmp = self.file.with_extension("json.tmp");
-        let json = serde_json::to_string_pretty(&self.data)
-            .unwrap_or_else(|_| "{}".to_string());
+        let json = serde_json::to_string_pretty(&self.data).unwrap_or_else(|_| "{}".to_string());
         fs::write(&tmp, json)?;
         fs::rename(&tmp, &self.file)?;
         Ok(())
@@ -58,7 +61,9 @@ impl Store {
         if status.is_empty() || status == "clear" {
             self.data.attendance.remove(date);
         } else {
-            self.data.attendance.insert(date.to_string(), status.to_string());
+            self.data
+                .attendance
+                .insert(date.to_string(), status.to_string());
         }
         let _ = self.save();
     }

@@ -112,7 +112,12 @@ pub fn run() {
                         } else {
                             "😴 Day off tomorrow"
                         };
-                        let _ = handle.notification().builder().title(title).body(body).show();
+                        let _ = handle
+                            .notification()
+                            .builder()
+                            .title(title)
+                            .body(body)
+                            .show();
                     }
                 }
             });

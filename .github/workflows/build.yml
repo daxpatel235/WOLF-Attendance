@@ -1,13 +1,68 @@
-name: Build installers
+name: CI
 
-# Builds the Windows NSIS (.exe) + MSI installers on a clean Windows runner
-# (no Smart App Control), then uploads them as downloadable artifacts.
+# `check` runs the fast correctness gates on Linux; `build` produces the Windows
+# installers and only runs once `check` is green, so an installer can never be
+# published from a commit that fails its own tests.
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
+# A newer push to the same branch makes the in-flight run obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  check:
+    name: Tests & lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "wolf-core -> target"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # Typechecks with `tsc --noEmit` and then bundles — catches frontend
+      # breakage in seconds, without waiting on the Rust compile.
+      - name: Typecheck & bundle frontend
+        run: npm run build
+
+      # wolf-core is pure Rust (chrono only), so it needs none of the Tauri
+      # system libraries and tests fine on Linux. This is the suite that
+      # actually guards the attendance algorithm.
+      - name: wolf-core — format
+        working-directory: wolf-core
+        run: cargo fmt --check
+
+      - name: wolf-core — clippy
+        working-directory: wolf-core
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: wolf-core — tests (incl. 2000-scenario fuzz)
+        working-directory: wolf-core
+        run: cargo test
+
   build:
+    name: Windows installers
+    needs: check
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -17,9 +72,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Set up Rust (stable MSVC)
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
       - name: Cache Rust build
         uses: swatinem/rust-cache@v2
@@ -28,6 +86,16 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      # The Tauri crate only compiles on a platform with its system webview, so
+      # these two gates live here rather than in `check`.
+      - name: src-tauri — format
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: src-tauri — clippy
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
 
       - name: Build Tauri app (frontend + Rust + installers)
         run: npm run tauri build

@@ -18,7 +18,12 @@ use tauri_plugin_notification::NotificationExt;
 pub type SharedStore = Mutex<Store>;
 
 const WEEKDAYS: [&str; 6] = [
-    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
 ];
 
 fn meta(store: &Store) -> Meta {
@@ -26,7 +31,10 @@ fn meta(store: &Store) -> Meta {
         app: config::APP_NAME.into(),
         version: config::APP_VERSION.into(),
         tagline: config::APP_TAGLINE.into(),
-        institution_types: config::INSTITUTION_TYPES.iter().map(|s| s.to_string()).collect(),
+        institution_types: config::INSTITUTION_TYPES
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
         data_path: store.data_path(),
     }
 }
@@ -80,11 +88,18 @@ pub fn tomorrow_message(store: &Store) -> (bool, String) {
                 _ => "You can stay home if you like.",
             };
             let name = store.settings().first_name.trim().to_string();
-            let who = if name.is_empty() { String::new() } else { format!("{}, ", name) };
+            let who = if name.is_empty() {
+                String::new()
+            } else {
+                format!("{}, ", name)
+            };
             return (true, format!("{}tomorrow is a {} day. {}", who, inst, tip));
         }
     }
-    (false, format!("No {} tomorrow — enjoy the day off! 😴", inst))
+    (
+        false,
+        format!("No {} tomorrow — enjoy the day off! 😴", inst),
+    )
 }
 
 fn num(v: &Value) -> f64 {
@@ -96,7 +111,14 @@ fn num(v: &Value) -> f64 {
 }
 
 fn clamp_pct(v: &Value) -> f64 {
-    num(v).max(0.0).min(100.0)
+    // NaN is handled explicitly: bare `clamp` would propagate it, and a NaN
+    // percentage would poison every downstream comparison.
+    let n = num(v);
+    if n.is_nan() {
+        0.0
+    } else {
+        n.clamp(0.0, 100.0)
+    }
 }
 
 fn apply_settings_patch(s: &mut Settings, patch: &HashMap<String, Value>) {
@@ -154,7 +176,10 @@ fn apply_settings_patch(s: &mut Settings, patch: &HashMap<String, Value>) {
                         }
                         out.insert(
                             key.clone(),
-                            Baseline { conducted, attended: attended.clamp(0, conducted) },
+                            Baseline {
+                                conducted,
+                                attended: attended.clamp(0, conducted),
+                            },
                         );
                     }
                     s.baselines = out;
@@ -193,7 +218,11 @@ pub fn save_settings(patch: HashMap<String, Value>, store: State<SharedStore>) -
         patch.get("semesterEnd").and_then(|v| v.as_str()),
     ) {
         if !a.is_empty() && !b.is_empty() && a > b {
-            return make_state(&s, false, Some("Start date must be on or before end date.".into()));
+            return make_state(
+                &s,
+                false,
+                Some("Start date must be on or before end date.".into()),
+            );
         }
     }
     apply_settings_patch(&mut s.data.settings, &patch);
@@ -306,7 +335,11 @@ pub fn save_timetable(payload: SaveTimetablePayload, store: State<SharedStore>) 
         clean.push(TtSubject {
             name,
             code: subj.code.trim().to_string(),
-            kind: if subj.kind == "lab" { "lab".into() } else { "lecture".into() },
+            kind: if subj.kind == "lab" {
+                "lab".into()
+            } else {
+                "lecture".into()
+            },
             color: config::palette_color(idx),
             schedule,
             sessions: subj.sessions.clone(),
@@ -322,7 +355,10 @@ pub fn save_timetable(payload: SaveTimetablePayload, store: State<SharedStore>) 
         if !prev.subjects.is_empty() {
             s.data.timetable_history.insert(
                 0,
-                TimetableSnapshot { saved_at: dateutils::today_iso(), timetable: prev },
+                TimetableSnapshot {
+                    saved_at: dateutils::today_iso(),
+                    timetable: prev,
+                },
             );
             s.data.timetable_history.truncate(8);
         }
@@ -398,7 +434,11 @@ pub fn test_reminder(app: AppHandle, store: State<SharedStore>) -> Result<(), St
         let s = store.lock().unwrap();
         tomorrow_message(&s)
     };
-    let title = if is_college { "📚 You have classes tomorrow" } else { "😴 Day off tomorrow" };
+    let title = if is_college {
+        "📚 You have classes tomorrow"
+    } else {
+        "😴 Day off tomorrow"
+    };
     app.notification()
         .builder()
         .title(title)

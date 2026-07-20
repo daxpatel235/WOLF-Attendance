@@ -6,9 +6,7 @@
 //! plain structs the core works with, so the desktop app, the cloud API and a
 //! future WASM build all execute byte-for-byte the same planner.
 
-use crate::models::{
-    Banner, Day, DaySession, DaySubject, Plan, Settings, SubjectCard, Timetable,
-};
+use crate::models::{Banner, Day, DaySession, DaySubject, Plan, Settings, SubjectCard, Timetable};
 use std::collections::HashMap;
 use wolf_core as core;
 
@@ -28,7 +26,10 @@ fn to_core_settings(s: &Settings) -> core::Settings {
             .map(|(k, b)| {
                 (
                     k.clone(),
-                    core::Baseline { conducted: b.conducted, attended: b.attended },
+                    core::Baseline {
+                        conducted: b.conducted,
+                        attended: b.attended,
+                    },
                 )
             })
             .collect(),
@@ -155,7 +156,8 @@ pub fn compute_plan(
     let mut att = core::Attendance::from_days(day_marks);
     for (date, per_subject) in subject_marks {
         for (key, mark) in per_subject {
-            att.subjects.insert((date.clone(), key.clone()), mark.clone());
+            att.subjects
+                .insert((date.clone(), key.clone()), mark.clone());
         }
     }
     let plan = core::compute_plan_with(

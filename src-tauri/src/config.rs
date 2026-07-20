@@ -5,8 +5,8 @@ pub const APP_TAGLINE: &str = "Attend the minimum. Stay home the rest.";
 pub const APP_VERSION: &str = "3.1.0";
 
 pub const SUBJECT_PALETTE: [&str; 12] = [
-    "#4A7C59", "#4A6B8A", "#C49A3C", "#C4704F", "#7C6F58", "#5A7A6A",
-    "#8A6D5A", "#6A5A7A", "#4F6F8A", "#8A8246", "#A94438", "#6B6560",
+    "#4A7C59", "#4A6B8A", "#C49A3C", "#C4704F", "#7C6F58", "#5A7A6A", "#8A6D5A", "#6A5A7A",
+    "#4F6F8A", "#8A8246", "#A94438", "#6B6560",
 ];
 
 // Lab/lecture weighting is part of the algorithm and now lives in `wolf-core`
