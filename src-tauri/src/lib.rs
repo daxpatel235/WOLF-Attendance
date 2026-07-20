@@ -141,6 +141,8 @@ pub fn run() {
             commands::add_holiday,
             commands::remove_holiday,
             commands::mark_day,
+            commands::mark_subject,
+            commands::clear_subject_marks,
             commands::save_timetable,
             commands::save_courses,
             commands::save_exams,

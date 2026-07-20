@@ -40,7 +40,7 @@ export function Subjects() {
         }
       />
       <motion.div variants={stagger} initial="hidden" animate="show" className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {shown.map((s) => <motion.div key={s.name} variants={rise}><SubjectCard s={s} /></motion.div>)}
+        {shown.map((s) => <motion.div key={s.key} variants={rise}><SubjectCard s={s} baseline={st?.settings?.baselines?.[s.key]} /></motion.div>)}
       </motion.div>
       {shown.length === 0 && <p className="text-center text-[var(--text-3)] font-semibold py-16">No subjects in this category — nice work. 🎉</p>}
     </div>

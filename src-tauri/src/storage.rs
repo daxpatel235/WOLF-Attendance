@@ -63,6 +63,30 @@ impl Store {
         let _ = self.save();
     }
 
+    /// Mark a single subject on a single day, overriding that day's mark for it.
+    /// Clearing the last override for a date removes the (now empty) date entry
+    /// so the file never accumulates dead keys.
+    pub fn mark_subject(&mut self, date: &str, key: &str, status: &str) {
+        if date.is_empty() || key.is_empty() {
+            return;
+        }
+        if status.is_empty() || status == "clear" {
+            if let Some(day) = self.data.subject_attendance.get_mut(date) {
+                day.remove(key);
+                if day.is_empty() {
+                    self.data.subject_attendance.remove(date);
+                }
+            }
+        } else {
+            self.data
+                .subject_attendance
+                .entry(date.to_string())
+                .or_default()
+                .insert(key.to_string(), status.to_string());
+        }
+        let _ = self.save();
+    }
+
     pub fn add_holiday(&mut self, d: &str) {
         if d.is_empty() {
             return;

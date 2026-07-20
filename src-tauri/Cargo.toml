@@ -25,6 +25,9 @@ tauri-plugin-notification = "2"
 tauri-plugin-autostart = "2"
 chrono = { version = "0.4", features = ["clock"] }
 open = "5"
+# The attendance algorithm lives in its own pure, fuzz-tested crate so the exact
+# same logic can run here, on the cloud API and (via WASM) in the browser.
+wolf-core = { path = "../wolf-core" }
 
 [profile.release]
 codegen-units = 1

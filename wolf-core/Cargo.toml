@@ -1,0 +1,11 @@
+[package]
+name = "wolf-core"
+version = "0.1.0"
+edition = "2021"
+description = "Pure attendance-planner logic for WOLF — runs on desktop, server (cloud) and WASM."
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[lib]
+path = "src/lib.rs"

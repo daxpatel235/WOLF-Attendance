@@ -57,6 +57,9 @@ export const api = {
   addHoliday:     (date: string)                                      => _invoke("add_holiday", { date })        as Promise<State>,
   removeHoliday:  (date: string)                                      => _invoke("remove_holiday", { date })     as Promise<State>,
   markDay:        (date: string, status: string)                      => _invoke("mark_day", { date, status })   as Promise<MarkResponse>,
+  // Per-subject override — beats the whole-day mark for that one subject.
+  markSubject:    (date: string, subjectKey: string, status: string)  => _invoke("mark_subject", { date, subjectKey, status }) as Promise<MarkResponse>,
+  clearSubjects:  (date: string)                                      => _invoke("clear_subject_marks", { date }) as Promise<MarkResponse>,
   saveTimetable:  (payload: { batchName: string; subjects: unknown[] }) => _invoke("save_timetable", { payload }) as Promise<State>,
   saveCourses:    (courses: Course[])                                  => _invoke("save_courses", { courses })   as Promise<State>,
   saveExams:      (exams: Exam[])                                      => _invoke("save_exams", { exams })       as Promise<State>,

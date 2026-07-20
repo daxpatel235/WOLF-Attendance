@@ -9,9 +9,8 @@ pub const SUBJECT_PALETTE: [&str; 12] = [
     "#8A6D5A", "#6A5A7A", "#4F6F8A", "#8A8246", "#A94438", "#6B6560",
 ];
 
-// Labs are weighted higher.
-pub const LAB_WEIGHT: i64 = 3;
-pub const LECTURE_WEIGHT: i64 = 1;
+// Lab/lecture weighting is part of the algorithm and now lives in `wolf-core`
+// (see wolf_core::LAB_WEIGHT / LECTURE_WEIGHT) so there is a single source of truth.
 
 pub const INSTITUTION_TYPES: [&str; 4] =
     ["College", "School", "University", "Coaching / Institute"];

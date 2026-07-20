@@ -5,7 +5,8 @@ node_modules/
 dist/
 
 # Rust / Tauri build output
-src-tauri/target/
+# Bare `target/` matches the build dir of every crate (src-tauri, wolf-core, …)
+target/
 src-tauri/gen/schemas/
 
 # Logs & debug

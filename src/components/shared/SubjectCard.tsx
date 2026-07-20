@@ -1,12 +1,14 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { FlaskConical, AlertTriangle } from "lucide-react";
+import { FlaskConical, AlertTriangle, History } from "lucide-react";
 import { ProgressRing } from "./ProgressRing";
-import type { SubjectCard as SubjectCardT } from "../../types";
+import type { SubjectCard as SubjectCardT, Baseline } from "../../types";
 
 const statusColor = (s: string) => (s === "safe" ? "var(--go)" : s === "warning" ? "var(--warn)" : "var(--danger)");
 
-export function SubjectCard({ s }: { s: SubjectCardT }) {
+/** `baseline` is what the student reported for the period before they started
+ *  tracking. Surfaced so the totals below are never mysterious. */
+export function SubjectCard({ s, baseline }: { s: SubjectCardT; baseline?: Baseline }) {
   const col = statusColor(s.status);
   return (
     <motion.div
@@ -35,6 +37,14 @@ export function SubjectCard({ s }: { s: SubjectCardT }) {
         <div className="mt-2 h-1.5 rounded-full bg-[var(--surface-3)] overflow-hidden">
           <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, s.currentPct)}%`, background: col }} />
         </div>
+
+        {baseline && baseline.conducted > 0 && (
+          <div className="text-[11px] font-bold text-[var(--text-3)] mt-2 flex items-center gap-1.5"
+            title="Attendance you reported for before you started tracking with WOLF">
+            <History className="w-3 h-3 shrink-0" />
+            Includes {baseline.attended}/{baseline.conducted} from before tracking
+          </div>
+        )}
 
         <div className="text-[11px] font-bold text-[var(--text-3)] mt-2 flex items-center gap-1.5">
           {s.impossible ? (

@@ -27,7 +27,18 @@ export interface Settings {
   reminderEnabled: boolean;
   reminderTime: string; // "HH:MM"
   autostartEnabled: boolean;
+  // First date WOLF is responsible for ("" = the whole semester). Days before
+  // this are shown but never inferred — `baselines` covers them instead.
+  trackingStart: string;
+  // subject key (code, else lowercased name) -> attendance before trackingStart.
+  // Lets a student adopt WOLF mid-semester without being assumed perfect.
+  baselines: Record<string, Baseline>;
 }
+
+export interface Baseline { conducted: number; attended: number; }
+
+/** A day (or a single subject on a day) can be marked with one of these. */
+export type Mark = "attended" | "skipped" | "cancelled";
 
 export interface TimetableSnapshot { savedAt: string; timetable: Timetable; }
 
@@ -68,6 +79,8 @@ export interface Banner {
 }
 
 export interface SubjectCard {
+  /** Stable identity — the key used by `Settings.baselines`. */
+  key: string;
   name: string;
   code: string;
   kind: string;
@@ -85,8 +98,11 @@ export interface SubjectCard {
   impossible: boolean;
 }
 
-export interface DaySubject { name: string; count: number; color: string; kind: string; }
-export interface DaySession { name: string; code: string; kind: string; color: string; start: string; end: string; }
+// `key` is the subject's stable identity (code, else lowercased name) — the id
+// you mark against. `mark` is the *effective* mark the planner used: the
+// per-subject override if there is one, otherwise the whole-day mark.
+export interface DaySubject { key: string; name: string; count: number; color: string; kind: string; mark: Mark | null; }
+export interface DaySession { key: string; name: string; code: string; kind: string; color: string; start: string; end: string; mark: Mark | null; }
 
 export interface Day {
   date: string;
@@ -94,7 +110,7 @@ export interface Day {
   isPast: boolean;
   isToday: boolean;
   category: string;
-  marked: string | null;
+  marked: Mark | null;
   subjects: DaySubject[];
   sessions: DaySession[];
   hasLab: boolean;
@@ -119,6 +135,9 @@ export interface State {
   courses: Course[];
   exams: Exam[];
   plan: Plan;
+  /** date -> subject key -> mark. Only *explicit* per-subject overrides live
+   *  here, which is how the UI tells an override apart from an inherited mark. */
+  subjectAttendance: Record<string, Record<string, Mark>>;
   today?: string;
   meta: Meta;
 }

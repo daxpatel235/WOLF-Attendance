@@ -24,8 +24,8 @@ export function Dock() {
   const { view, go, isDark, toggleDark, logout, mode } = useApp();
 
   return (
-    <div className="shrink-0 h-full py-4 pl-4 pr-1 z-30 flex">
-      <nav className="relative flex flex-col items-center w-[76px] h-full rounded-[var(--dock-radius)] glass shadow-[var(--shadow-lg)] py-4 overflow-visible">
+    <div className="shrink-0 h-full py-4 pl-4 pr-1 z-30 flex items-center">
+      <nav className="relative flex flex-col items-center w-[76px] max-h-full rounded-[var(--dock-radius)] glass shadow-[var(--shadow-lg)] py-4 overflow-visible">
         {/* Brand */}
         <button onClick={() => go("dashboard")} className="relative mb-3 group" aria-label="WOLF home">
           {mode === "school" ? (
@@ -42,7 +42,7 @@ export function Dock() {
         <div className="w-8 h-px bg-[var(--border)] mb-3" />
 
         {/* Primary nav */}
-        <div className="flex-1 flex flex-col items-center gap-1.5">
+        <div className="flex flex-col items-center gap-1.5">
           {NAV.map((n) => (
             <DockButton key={n.id} item={n} active={view === n.id} onClick={() => go(n.id)} />
           ))}

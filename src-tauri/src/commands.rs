@@ -1,8 +1,8 @@
 // Tauri commands — the data layer the React frontend talks to via `invoke`.
 // These replace the old Express REST routes 1:1.
 use crate::models::{
-    Course, Exam, MarkResponse, Meta, Plan, Settings, StateResp, Timetable, TimetableSnapshot,
-    TtSession, TtSubject,
+    Baseline, Course, Exam, MarkResponse, Meta, Plan, Settings, StateResp, Timetable,
+    TimetableSnapshot, TtSession, TtSubject,
 };
 use crate::planner::compute_plan;
 use crate::storage::Store;
@@ -36,6 +36,7 @@ fn make_plan(store: &Store) -> Plan {
         store.settings(),
         store.timetable(),
         &store.data.attendance,
+        &store.data.subject_attendance,
         &dateutils::today_iso(),
     )
 }
@@ -50,6 +51,7 @@ fn make_state(store: &Store, ok: bool, error: Option<String>) -> StateResp {
         courses: store.data.courses.clone(),
         exams: store.data.exams.clone(),
         plan: make_plan(store),
+        subject_attendance: store.data.subject_attendance.clone(),
         today: Some(dateutils::today_iso()),
         meta: meta(store),
     }
@@ -69,7 +71,7 @@ pub fn tomorrow_message(store: &Store) -> (bool, String) {
     } else {
         "college"
     };
-    let plan = compute_plan(store.settings(), store.timetable(), &store.data.attendance, &today);
+    let plan = make_plan(store);
     if let Some(day) = plan.days.iter().find(|d| d.date == tomorrow) {
         if day.category != "holiday" && day.total_lectures > 0 {
             let tip = match day.category.as_str() {
@@ -136,6 +138,28 @@ fn apply_settings_patch(s: &mut Settings, patch: &HashMap<String, Value>) {
                         .collect();
                 }
             }
+            "trackingStart" => set_str(&mut s.tracking_start, v),
+            // { "CS201": { "conducted": 18, "attended": 12 }, ... }
+            // A baseline can never claim more attended than conducted, and a
+            // zero-conducted entry is dropped rather than stored as noise.
+            "baselines" => {
+                if let Some(obj) = v.as_object() {
+                    let mut out: HashMap<String, Baseline> = HashMap::new();
+                    for (key, val) in obj {
+                        let conducted = val.get("conducted").map(num).unwrap_or(0.0).round() as i64;
+                        let attended = val.get("attended").map(num).unwrap_or(0.0).round() as i64;
+                        let conducted = conducted.max(0);
+                        if conducted == 0 {
+                            continue;
+                        }
+                        out.insert(
+                            key.clone(),
+                            Baseline { conducted, attended: attended.clamp(0, conducted) },
+                        );
+                    }
+                    s.baselines = out;
+                }
+            }
             _ => {}
         }
     }
@@ -191,10 +215,49 @@ pub fn remove_holiday(date: String, store: State<SharedStore>) -> StateResp {
     make_state(&s, true, None)
 }
 
+/// Only the three real marks (plus an empty/"clear" reset) may be persisted, so
+/// a typo from the frontend can never poison the stored data.
+fn clean_mark(status: &str) -> String {
+    match status {
+        wolf_core::MARK_ATTENDED | wolf_core::MARK_SKIPPED | wolf_core::MARK_CANCELLED => {
+            status.to_string()
+        }
+        _ => String::new(),
+    }
+}
+
 #[tauri::command]
 pub fn mark_day(date: String, status: String, store: State<SharedStore>) -> MarkResponse {
     let mut s = store.lock().unwrap();
-    s.mark_day(&date, &status);
+    s.mark_day(&date, &clean_mark(&status));
+    MarkResponse {
+        ok: true,
+        plan: make_plan(&s),
+    }
+}
+
+/// Mark one subject on one day — "I went to DS but skipped Physics on Tuesday".
+#[tauri::command]
+pub fn mark_subject(
+    date: String,
+    subject_key: String,
+    status: String,
+    store: State<SharedStore>,
+) -> MarkResponse {
+    let mut s = store.lock().unwrap();
+    s.mark_subject(&date, &subject_key, &clean_mark(&status));
+    MarkResponse {
+        ok: true,
+        plan: make_plan(&s),
+    }
+}
+
+/// Clear every per-subject override on a date, falling back to the day mark.
+#[tauri::command]
+pub fn clear_subject_marks(date: String, store: State<SharedStore>) -> MarkResponse {
+    let mut s = store.lock().unwrap();
+    s.data.subject_attendance.remove(&date);
+    let _ = s.save();
     MarkResponse {
         ok: true,
         plan: make_plan(&s),

@@ -32,9 +32,15 @@ export function BackgroundFX({ dense = false }: { dense?: boolean }) {
           <Blob className="w-[36vw] h-[36vw] top-[40vh] -left-[10vw]" color="var(--accent)" o={0.2 * k * b} dur={32} delay={-8} />
           <Blob className="w-[30vw] h-[30vw] bottom-[2vh] right-[18vw]" color="var(--accent-2)" o={0.16 * k * b} dur={30} delay={-14} />
           <div className="absolute inset-0 paper-lines" style={{ opacity: isDark ? 0.5 : 0.6 }} />
-          <Cloud className="top-[10vh] scale-90" dur={120} delay={0} op={cloudOp} />
-          <Cloud className="top-[62vh] scale-110" dur={150} delay={-70} op={cloudOp * 0.8} />
-          {dense && <Plane className="top-[26vh]" dur={26} delay={-4} />}
+          {/* Clouds only read well on a bright pastel sky — skip them in dark mode
+              where a white cloud turns into a murky grey blob. */}
+          {!isDark && (
+            <>
+              <Cloud className="top-[10vh] scale-90" dur={120} delay={0} op={cloudOp} />
+              <Cloud className="top-[64vh] scale-110" dur={150} delay={-70} op={cloudOp * 0.8} />
+              {dense && <Plane className="top-[26vh]" dur={26} delay={-4} />}
+            </>
+          )}
         </>
       )}
       {/* legibility scrim so text always wins over the wallpaper */}

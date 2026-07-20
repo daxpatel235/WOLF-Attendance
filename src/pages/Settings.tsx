@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Settings as SettingsIcon, User, Building2, Target, Check, Backpack, GraduationCap } from "lucide-react";
+import { Settings as SettingsIcon, User, Building2, Target, Check, Backpack, GraduationCap, History } from "lucide-react";
 import { useApp } from "../store";
 import { api } from "../api";
 import { AnimatedCard } from "../components/ui/AnimatedCard";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import { Segmented } from "../components/ui/Segmented";
+import { BaselineEditor } from "../components/shared/BaselineEditor";
+import type { Baseline } from "../types";
 import { stagger, rise } from "../lib/motion";
 
 export function Settings() {
@@ -14,6 +16,11 @@ export function Settings() {
   const [f, setF] = useState<any>({ ...(st?.settings || {}) });
   const [saved, setSaved] = useState(false);
   const set = (k: string, v: unknown) => setF((p: any) => ({ ...p, [k]: v }));
+
+  // A baseline only exists if there's a tracking start to anchor it to.
+  const [catchUp, setCatchUp] = useState<boolean>(!!st?.settings?.trackingStart);
+  const [baselines, setBaselines] = useState<Record<string, Baseline>>({ ...(st?.settings?.baselines || {}) });
+  const subjects = st?.plan?.subjects || [];
 
   const save = async () => {
     await api.saveSettings({
@@ -23,6 +30,10 @@ export function Settings() {
       semesterStart: f.semesterStart, semesterEnd: f.semesterEnd,
       minPercent: +f.minPercent, labPercent: +f.labPercent, targetPercent: +f.targetPercent,
       attendanceMode: f.attendanceMode,
+      // Turning catch-up off clears both halves, so a stale baseline can never
+      // keep skewing the numbers after the student disables it.
+      trackingStart: catchUp ? f.trackingStart || "" : "",
+      baselines: catchUp ? baselines : {},
     });
     refresh();
     setSaved(true); setTimeout(() => setSaved(false), 2200);
@@ -35,7 +46,7 @@ export function Settings() {
     <div>
       <PageHeader title="Settings" subtitle="Your profile, institution and attendance targets." icon={<SettingsIcon className="w-6 h-6" />} />
 
-      <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-4xl">
+      <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6 max-w-4xl mx-auto">
         <motion.div variants={rise}>
           <AnimatedCard spotlight={false}>
             <SectionTitle icon={<User className="w-5 h-5" />}>Personal</SectionTitle>
@@ -85,6 +96,23 @@ export function Settings() {
               <Segmented<string> layoutId="attmode" value={f.attendanceMode || "both"} onChange={(v) => set("attendanceMode", v)}
                 options={[{ value: "both", label: "Both" }, { value: "lectures", label: "Lectures" }, { value: "labs", label: "Labs" }]} />
             </div>
+          </AnimatedCard>
+        </motion.div>
+
+        <motion.div variants={rise}>
+          <AnimatedCard spotlight={false}>
+            <SectionTitle icon={<History className="w-5 h-5" />}>Catch-up baseline</SectionTitle>
+            <BaselineEditor
+              subjects={subjects}
+              enabled={catchUp}
+              onToggle={setCatchUp}
+              trackingStart={f.trackingStart || ""}
+              onTrackingStart={(v) => set("trackingStart", v)}
+              baselines={baselines}
+              onBaselines={setBaselines}
+              semesterStart={f.semesterStart}
+              semesterEnd={f.semesterEnd}
+            />
           </AnimatedCard>
         </motion.div>
 

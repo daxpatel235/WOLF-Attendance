@@ -3,6 +3,15 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Attendance already accrued before the student started tracking with WOLF.
+/// Lets someone adopt the app mid-semester without being assumed perfect.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Baseline {
+    pub conducted: i64,
+    pub attended: i64,
+}
+
 // ---- Persisted settings ---------------------------------------------------
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
@@ -34,6 +43,11 @@ pub struct Settings {
     pub reminder_enabled: bool,
     pub reminder_time: String,
     pub autostart_enabled: bool,
+    // First date WOLF is responsible for. Empty => the whole semester.
+    // Days before this are shown but never inferred; `baselines` covers them.
+    pub tracking_start: String,
+    // subject key (code, else lowercased name) -> attendance before tracking_start
+    pub baselines: HashMap<String, Baseline>,
 }
 
 impl Default for Settings {
@@ -62,6 +76,8 @@ impl Default for Settings {
             reminder_enabled: false,
             reminder_time: "20:00".into(),
             autostart_enabled: false,
+            tracking_start: String::new(),
+            baselines: HashMap::new(),
         }
     }
 }
@@ -131,7 +147,12 @@ pub struct Exam {
 pub struct Data {
     pub settings: Settings,
     pub timetable: Option<Timetable>,
+    /// Whole-day marks: date -> "attended" | "skipped" | "cancelled".
     pub attendance: HashMap<String, String>,
+    /// Per-subject overrides: date -> subject key -> mark. Nested (rather than a
+    /// tuple key) so it round-trips through JSON as a plain object.
+    #[serde(default)]
+    pub subject_attendance: HashMap<String, HashMap<String, String>>,
     pub timetable_history: Vec<TimetableSnapshot>,
     pub courses: Vec<Course>,
     pub exams: Vec<Exam>,
@@ -141,21 +162,25 @@ pub struct Data {
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct DaySubject {
+    pub key: String,
     pub name: String,
     pub count: i64,
     pub color: String,
     pub kind: String,
+    pub mark: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct DaySession {
+    pub key: String,
     pub name: String,
     pub code: String,
     pub kind: String,
     pub color: String,
     pub start: String,
     pub end: String,
+    pub mark: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -176,6 +201,7 @@ pub struct Day {
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SubjectCard {
+    pub key: String,
     pub name: String,
     pub code: String,
     pub kind: String,
@@ -242,6 +268,9 @@ pub struct StateResp {
     pub courses: Vec<Course>,
     pub exams: Vec<Exam>,
     pub plan: Plan,
+    /// date -> subject key -> mark, so the UI can tell an explicit per-subject
+    /// override apart from one inherited off the whole-day mark.
+    pub subject_attendance: HashMap<String, HashMap<String, String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub today: Option<String>,
     pub meta: Meta,

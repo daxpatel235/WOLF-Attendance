@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import {
   Flame, Trophy, ArrowRight, Sparkles, Clock, CalendarCheck, CalendarX,
-  Coffee, FlaskConical, CheckCircle2, XCircle, Zap, GraduationCap, ChevronRight,
+  Coffee, FlaskConical, Zap, GraduationCap, ChevronRight,
 } from "lucide-react";
 import { useApp } from "../store";
 import { api } from "../api";
@@ -13,6 +13,8 @@ import { ProgressRing } from "../components/shared/ProgressRing";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Mascot } from "../components/ui/Mascot";
+import { MarkControl } from "../components/shared/MarkControl";
+import type { Mark } from "../types";
 import { stagger, rise } from "../lib/motion";
 import { dayLabel } from "../lib/utils";
 
@@ -56,10 +58,15 @@ export function Dashboard() {
   const ovCol = stats.pct >= st.settings.targetPercent ? "var(--go)" : stats.pct >= st.settings.minPercent ? "var(--warn)" : "var(--danger)";
   const pctToNextLvl = lvl.span > 0 ? Math.round((lvl.intoLevel / lvl.span) * 100) : 0;
 
-  const marked = todayDay?.marked;
-  const mark = async (status: string) => {
+  const marked = todayDay?.marked ?? null;
+  const overrides = st.subjectAttendance?.[today] || {};
+  const markDay = async (m: Mark | null) => {
     if (!today) return;
-    try { await api.markDay(today, marked === status ? "" : status); refresh(); } catch { /* ignore */ }
+    try { await api.markDay(today, m ?? ""); refresh(); } catch { /* ignore */ }
+  };
+  const markOne = async (key: string, m: Mark | null) => {
+    if (!today) return;
+    try { await api.markSubject(today, key, m ?? ""); refresh(); } catch { /* ignore */ }
   };
 
   return (
@@ -123,11 +130,18 @@ export function Dashboard() {
                   <span className="w-2.5 h-2.5 rounded-full bg-[var(--go)] shadow-[0_0_12px_var(--go)] animate-[pulseGlow_2s_infinite]" />
                   Today's classes
                 </h3>
-                {nextSession && (
-                  <span className="text-sm font-bold text-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" /> Next in {minsToNext! < 60 ? `${minsToNext}m` : `${Math.floor(minsToNext! / 60)}h ${minsToNext! % 60}m`}
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {nextSession && (
+                    <span className="text-sm font-bold text-[var(--accent)] bg-[var(--accent-soft)] px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" /> Next in {minsToNext! < 60 ? `${minsToNext}m` : `${Math.floor(minsToNext! / 60)}h ${minsToNext! % 60}m`}
+                    </span>
+                  )}
+                  {sessions.length > 0 && (
+                    <span className="hidden sm:inline text-[11px] font-black uppercase tracking-widest text-[var(--text-3)]">
+                      Went · Skipped · Cancelled
+                    </span>
+                  )}
+                </div>
               </div>
 
               {sessions.length === 0 ? (
@@ -141,11 +155,12 @@ export function Dashboard() {
                   {sessions.map((s, i) => {
                     const active = now >= toMin(s.start) && now < toMin(s.end);
                     const past = now >= toMin(s.end);
+                    const explicit = overrides[s.key] != null;
                     return (
-                      <motion.div key={i} whileHover={{ x: 4 }} className="relative flex items-center gap-4 group">
+                      <motion.div key={i} className="relative flex items-center gap-4 group">
                         <span className={`absolute -left-6 w-4 h-4 rounded-full border-4 border-[var(--surface-solid)] ${active ? "bg-[var(--go)] shadow-[0_0_14px_var(--go)]" : past ? "bg-[var(--text-3)]" : "bg-[var(--surface-3)]"}`} />
-                        <div className="flex-1 flex items-center gap-4 p-4 rounded-[var(--r)] border border-[var(--border)] bg-[var(--surface-2)] group-hover:bg-[var(--surface)] group-hover:shadow-[var(--shadow-sm)] transition-all"
-                          style={active ? { borderColor: "var(--go)" } : undefined}>
+                        <div className="flex-1 flex flex-wrap items-center gap-x-4 gap-y-3 p-4 rounded-[var(--r)] border border-[var(--border)] bg-[var(--surface-2)] group-hover:bg-[var(--surface)] group-hover:shadow-[var(--shadow-sm)] transition-all"
+                          style={active ? { borderColor: "var(--go)" } : explicit ? { borderColor: "var(--accent)" } : undefined}>
                           <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: s.color }} />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -155,6 +170,8 @@ export function Dashboard() {
                             <div className="text-xs font-bold text-[var(--text-3)] uppercase tracking-wider">{s.code || s.kind}</div>
                           </div>
                           <div className={`text-sm font-black tabnums ${active ? "text-[var(--go)]" : "text-[var(--text-2)]"}`}>{s.start}<span className="text-[var(--text-3)]">–{s.end}</span></div>
+                          <MarkControl size="sm" labels={false} value={s.mark} inherited={!explicit}
+                            onChange={(m) => markOne(s.key, m)} />
                         </div>
                       </motion.div>
                     );
@@ -164,10 +181,16 @@ export function Dashboard() {
 
               {/* mark today */}
               {todayDay && todayDay.totalLectures > 0 && (
-                <div className="flex items-center gap-3 mt-6 pt-5 border-t border-[var(--border)]">
-                  <span className="text-sm font-bold text-[var(--text-3)] mr-auto">Log today</span>
-                  <MarkBtn active={marked === "attended"} onClick={() => mark("attended")} color="var(--go)" icon={<CheckCircle2 className="w-4 h-4" />} label="Attended" />
-                  <MarkBtn active={marked === "skipped"} onClick={() => mark("skipped")} color="var(--danger)" icon={<XCircle className="w-4 h-4" />} label="Skipped" />
+                <div className="flex flex-wrap items-center gap-3 mt-6 pt-5 border-t border-[var(--border)]">
+                  <div className="mr-auto">
+                    <div className="text-sm font-bold text-[var(--text-2)]">Log the whole day</div>
+                    <div className="text-xs font-medium text-[var(--text-3)]">
+                      {Object.keys(overrides).length > 0
+                        ? `${Object.keys(overrides).length} class${Object.keys(overrides).length === 1 ? "" : "es"} overridden above`
+                        : "Or mark classes one by one above"}
+                    </div>
+                  </div>
+                  <MarkControl value={marked} onChange={markDay} />
                 </div>
               )}
             </AnimatedCard>
@@ -181,7 +204,7 @@ export function Dashboard() {
               </button>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
-              {plan.subjects.slice(0, 4).map((s) => <SubjectCard key={s.name} s={s} />)}
+              {plan.subjects.slice(0, 4).map((s) => <SubjectCard key={s.key} s={s} baseline={st.settings.baselines?.[s.key]} />)}
             </div>
           </motion.div>
         </div>
@@ -285,16 +308,6 @@ function BigRing({ pct, color }: { pct: number; color: string }) {
   );
 }
 const stats0 = (n: number) => Math.round(n);
-
-function MarkBtn({ active, onClick, color, icon, label }: { active: boolean; onClick: () => void; color: string; icon: React.ReactNode; label: string }) {
-  return (
-    <motion.button whileTap={{ scale: 0.94 }} onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[var(--r-sm)] text-sm font-bold border-2 transition-colors"
-      style={active ? { background: color, borderColor: color, color: "#fff" } : { borderColor: "var(--border)", color: "var(--text-2)" }}>
-      {icon}{label}
-    </motion.button>
-  );
-}
 
 function MiniStat({ onClick, icon, grad, value, label }: { onClick: () => void; icon: React.ReactNode; grad: string; value: string; label: string }) {
   return (
