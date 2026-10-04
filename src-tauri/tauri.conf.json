@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": "all",
     "publisher": "Patel",
     "category": "Education",
     "shortDescription": "Minimum-days attendance planner",
