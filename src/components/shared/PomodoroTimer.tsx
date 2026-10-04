@@ -2,40 +2,52 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import { AnimatedCard } from "../ui/AnimatedCard";
+import { usePersistentState } from "../../lib/usePersistentState";
 
-export function PomodoroTimer() {
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isActive, setIsActive] = useState(false);
-  const [mode, setMode] = useState<"focus" | "break">("focus");
+const FOCUS_SECS = 25 * 60;
+const BREAK_SECS = 5 * 60;
+type TimerMode = "focus" | "break";
+type TimerState = { mode: TimerMode; endsAt: number | null; remaining: number };
+
+/**
+ * Pomodoro timer. It counts against a wall-clock deadline instead of ticking
+ * a counter, so it stays accurate when the window is minimised to the tray
+ * (where the WebView throttles timers), and its state is persisted so leaving
+ * the Focus page does not reset a running session.
+ */
+export function PomodoroTimer({ onFocusComplete }: { onFocusComplete?: () => void }) {
+  const [t, setT] = usePersistentState<TimerState>("pomodoro", { mode: "focus", endsAt: null, remaining: FOCUS_SECS });
+  const [now, setNow] = useState(() => Date.now());
+  const mode = t.mode;
+  const isActive = t.endsAt != null;
+  const timeLeft = isActive ? Math.max(0, Math.ceil((t.endsAt! - now) / 1000)) : t.remaining;
+  const total = mode === "focus" ? FOCUS_SECS : BREAK_SECS;
+  const setMode = (m: TimerMode) => setT({ mode: m, endsAt: null, remaining: m === "focus" ? FOCUS_SECS : BREAK_SECS });
 
   useEffect(() => {
-    let interval: any = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((t) => t - 1);
-      }, 1000);
-    } else if (timeLeft === 0) {
-      setIsActive(false);
-      if (mode === "focus") {
-        setMode("break");
-        setTimeLeft(5 * 60);
-      } else {
-        setMode("focus");
-        setTimeLeft(25 * 60);
-      }
-    }
-    return () => clearInterval(interval);
+    if (!isActive) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive || timeLeft > 0) return;
+    // Session finished: record it and flip to the other phase.
+    if (mode === "focus") onFocusComplete?.();
+    setMode(mode === "focus" ? "break" : "focus");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, timeLeft, mode]);
 
-  const toggleTimer = () => setIsActive(!isActive);
-  const resetTimer = () => {
-    setIsActive(false);
-    setTimeLeft(mode === "focus" ? 25 * 60 : 5 * 60);
+  const toggleTimer = () => {
+    const n = Date.now();
+    setNow(n);
+    setT((p) => (p.endsAt != null
+      ? { ...p, endsAt: null, remaining: Math.max(0, Math.ceil((p.endsAt - n) / 1000)) }
+      : { ...p, endsAt: n + (p.remaining > 0 ? p.remaining : total) * 1000 }));
   };
+  const resetTimer = () => setT((p) => ({ ...p, endsAt: null, remaining: p.mode === "focus" ? FOCUS_SECS : BREAK_SECS }));
 
-  const pct = mode === "focus" 
-    ? ((25 * 60 - timeLeft) / (25 * 60)) * 100 
-    : ((5 * 60 - timeLeft) / (5 * 60)) * 100;
+  const pct = ((total - timeLeft) / total) * 100;
     
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
@@ -48,13 +60,13 @@ export function PomodoroTimer() {
     <AnimatedCard className="w-full h-full flex flex-col items-center justify-center py-8 text-center" glow>
       <div className="flex gap-2 bg-[var(--surface-2)] p-1 rounded-xl mb-6">
         <button 
-          onClick={() => { setMode("focus"); setTimeLeft(25 * 60); setIsActive(false); }}
+          onClick={() => setMode("focus")}
           className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${mode === "focus" ? "bg-[var(--surface)] shadow-sm text-[var(--danger)]" : "text-[var(--text-3)]"}`}
         >
           Focus
         </button>
         <button 
-          onClick={() => { setMode("break"); setTimeLeft(5 * 60); setIsActive(false); }}
+          onClick={() => setMode("break")}
           className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${mode === "break" ? "bg-[var(--surface)] shadow-sm text-[var(--go)]" : "text-[var(--text-3)]"}`}
         >
           Break
@@ -82,14 +94,14 @@ export function PomodoroTimer() {
 
       <div className="flex items-center gap-4 mt-auto">
         <button 
-          onClick={resetTimer}
+          onClick={resetTimer} aria-label="Reset timer"
           className="w-12 h-12 rounded-2xl bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center transition-all hover:scale-105 active:scale-95"
         >
           <RotateCcw className="w-5 h-5" />
         </button>
         
         <button 
-          onClick={toggleTimer}
+          onClick={toggleTimer} aria-label={isActive ? "Pause" : "Start"}
           className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${bg} text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all`}
           style={{ boxShadow: `0 12px 24px ${color}40` }}
         >

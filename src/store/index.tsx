@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
-import { api } from "../api";
+import { api, isTauri } from "../api";
 import type { State } from "../types";
 
 export type Mode = "school" | "college";
@@ -10,6 +10,8 @@ interface AppContextType {
   go: (view: string) => void;
   refresh: () => void;
   loading: boolean;
+  /** Set when the backend could not be reached / returned an error on load. */
+  error: string | null;
   /** Institution identity — drives the entire visual language. */
   mode: Mode;
   /** Alias kept for backwards compatibility. */
@@ -29,6 +31,7 @@ const root = () => document.documentElement;
 export function AppProvider({ children }: { children: ReactNode }) {
   const [st, setSt] = useState<State | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState("dashboard");
   const [mode, setModeState] = useState<Mode>("college");
   const [isDark, setIsDark] = useState(
@@ -52,17 +55,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(() => {
-    if (!(window as any).__TAURI_INTERNALS__) {
-      const raw = localStorage.getItem("wolf_state");
-      const state = (raw ? JSON.parse(raw) : { settings: { onboarded: false } }) as State;
+    if (!isTauri()) {
+      let state: State;
+      try {
+        const raw = localStorage.getItem("wolf_state");
+        state = (raw ? JSON.parse(raw) : { settings: { onboarded: false } }) as State;
+      } catch {
+        state = { settings: { onboarded: false } } as State;
+      }
       setSt(state);
       applyFromState(state);
       setLoading(false);
       return;
     }
     api.bootstrap()
-      .then((state) => { setSt(state); applyFromState(state); })
-      .catch((e) => console.error(e))
+      .then((state) => { setSt(state); applyFromState(state); setError(null); })
+      .catch((e) => { console.error(e); setError(String(e?.message ?? e ?? "Unknown error")); })
       .finally(() => setLoading(false));
   }, [applyFromState]);
 
@@ -77,21 +85,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleDark = useCallback(() => setIsDark((v) => !v), []);
   const setDark = useCallback((v: boolean) => setIsDark(v), []);
 
-  const logout = useCallback(() => {
-    api.saveSettings({ onboarded: false }).catch(() => {});
-    if (!(window as any).__TAURI_INTERNALS__) {
-      const raw = localStorage.getItem("wolf_state");
-      const state = raw ? JSON.parse(raw) : { settings: {} };
-      state.settings = { ...(state.settings || {}), onboarded: false };
-      localStorage.setItem("wolf_state", JSON.stringify(state));
-    }
+  const logout = useCallback(async () => {
+    // Wait for the backend to persist the flag before reloading, otherwise the
+    // refresh can race the save and bounce straight back into the app.
+    try { await api.saveSettings({ onboarded: false }); } catch (e) { console.error(e); }
     setView("login");
-    setTimeout(refresh, 60);
+    refresh();
   }, [refresh]);
 
   return (
     <AppContext.Provider
-      value={{ st, view, go: setView, refresh, loading, mode, theme: mode, setMode, isDark, toggleDark, setDark, logout }}
+      value={{ st, view, go: setView, refresh, loading, error, mode, theme: mode, setMode, isDark, toggleDark, setDark, logout }}
     >
       {children}
     </AppContext.Provider>

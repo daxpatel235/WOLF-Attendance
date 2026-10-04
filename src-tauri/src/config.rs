@@ -2,7 +2,8 @@
 
 pub const APP_NAME: &str = "WOLF Attendance";
 pub const APP_TAGLINE: &str = "Attend the minimum. Stay home the rest.";
-pub const APP_VERSION: &str = "3.1.0";
+// Taken from Cargo.toml so the About screen can never drift from the build.
+pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const SUBJECT_PALETTE: [&str; 12] = [
     "#4A7C59", "#4A6B8A", "#C49A3C", "#C4704F", "#7C6F58", "#5A7A6A", "#8A6D5A", "#6A5A7A",

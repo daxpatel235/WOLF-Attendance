@@ -41,7 +41,7 @@ export interface StreakInfo { current: number; longest: number; attendedDays: nu
 // count as attended, matching the planner). Skipped days break the streak.
 export function streakInfo(plan: Plan): StreakInfo {
   const past = (plan.days || [])
-    .filter((d) => d.isPast && d.category !== "holiday" && d.totalLectures > 0)
+    .filter((d) => d.isPast && d.category !== "holiday" && d.category !== "pre-tracking" && d.totalLectures > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
   let longest = 0, run = 0, current = 0, attendedDays = 0, loggedDays = 0;
   for (const d of past) {

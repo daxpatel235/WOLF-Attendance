@@ -841,11 +841,10 @@ pub fn compute_plan_with(
     for day in &days {
         if day.category == "skip" {
             for s in &day.subjects {
-                // day.subjects carries display names; map back via name -> key
-                for k in &keys {
-                    if name_of.get(k).map(|n| n == &s.name).unwrap_or(false) {
-                        *skippable.get_mut(k).unwrap() += 1;
-                    }
+                // Match on the stable key, not the display name: two subjects
+                // sharing a name (different codes) must not count each other's days.
+                if let Some(v) = skippable.get_mut(&s.key) {
+                    *v += 1;
                 }
             }
         }
@@ -1371,6 +1370,21 @@ mod tests {
     }
 
     // ── 15. FIX: mid-semester adoption with a real baseline ──────────────
+    #[test]
+    fn same_name_subjects_do_not_share_skippable_days() {
+        // Two different subjects that share a display name ("Physics" the
+        // lecture CS-coded P1, and "Physics" the lab coded P1L) must each count
+        // only their own free days.
+        let a = coded(subj("Physics", "lecture", &[("Monday", 1)]), "P1");
+        let b = coded(subj("Physics", "lab", &[("Tuesday", 2)]), "P1L");
+        // Two weeks, a 0% requirement: every future day is free.
+        let st = settings(MON, "2026-01-17", 0.0, 0.0, 0.0);
+        let plan = compute_plan(&st, &tt(vec![a, b]), &HashMap::new(), "2026-01-04");
+        let get = |k: &str| plan.subjects.iter().find(|c| c.key == k).unwrap();
+        assert_eq!(get("P1").can_still_skip_days, 2, "two Mondays");
+        assert_eq!(get("P1L").can_still_skip_days, 2, "two Tuesdays");
+    }
+
     #[test]
     fn baseline_replaces_the_assume_perfect_guess() {
         // Semester runs Jan 5 – Feb 27. Student adopts WOLF on Jan 19 and

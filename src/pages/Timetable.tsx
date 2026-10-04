@@ -7,16 +7,9 @@ import { AnimatedCard } from "../components/ui/AnimatedCard";
 import { PageHeader } from "../components/ui/PageHeader";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Button } from "../components/ui/Button";
+import { MB_DAYS, toMin, toHHMM, buildRows, editorFromTimetable, type Slot, type MSubject } from "../lib/timetable";
 
-const MB_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MB_DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const toMin = (t: string) => { const [h, m] = (t || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
-const toHHMM = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(((m % 60) + 60) % 60).padStart(2, "0")}`;
-const perOf = (s: string, e: string) => { const a = toMin(s), b = toMin(e); return b > a ? Math.max(1, Math.min(8, Math.round((b - a) / 60))) : 1; };
-
-type Slot = { start: string; end: string; lunch: boolean };
-type MSubject = { name: string; code: string; kind: string };
-type Row = { name: string; code: string; kind: string; schedule: Record<string, number>; sessions: unknown[] };
 
 export function Timetable() {
   const { st, refresh } = useApp();
@@ -30,8 +23,29 @@ export function Timetable() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [subs, setSubs] = useState<MSubject[]>([{ name: "", code: "", kind: "lecture" }]);
   const [grid, setGrid] = useState<(number | null)[][]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const startEditing = () => {
+    const pre = editorFromTimetable(tt);
+    if (pre) {
+      setSubs(pre.subs.length ? pre.subs : [{ name: "", code: "", kind: "lecture" }]);
+      setSlots(pre.slots);
+      setGrid(pre.grid);
+      setBatch(tt?.batchName || st?.settings?.batchName || "");
+    }
+    setIsEditing(true);
+  };
+
+  // Removing a subject must not shift every later subject's grid cells onto
+  // the wrong row: clear the removed one and re-point the rest.
+  const removeSub = (i: number) => {
+    setSubs((p) => p.filter((_, j) => j !== i));
+    setGrid((g) => g.map((row) => row.map((c) => (c == null || c === i ? null : c > i ? c - 1 : c))));
+  };
 
   const genSlots = () => {
+    if (slots.length && grid.some((row) => row.some((c) => c != null)) &&
+        !window.confirm("Regenerating the grid clears the subjects you've placed. Continue?")) return;
     const out: Slot[] = []; let cur = toMin(startT);
     for (let i = 0; i < nPer; i++) { out.push({ start: toHHMM(cur), end: toHHMM(cur + lenMin), lunch: false }); cur += lenMin; }
     setSlots(out); setGrid(out.map(() => Array(6).fill(null)));
@@ -41,36 +55,24 @@ export function Timetable() {
   const updSub = (i: number, patch: Partial<MSubject>) => setSubs((p) => p.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
   const build = async () => {
-    const groups: Record<string, Row> = {}; const order: string[] = [];
-    for (let d = 0; d < 6; d++) {
-      let i = 0;
-      while (i < slots.length) {
-        if (slots[i].lunch || grid[i]?.[d] == null) { i++; continue; }
-        const subjIdx = grid[i][d] as number; let j = i;
-        while (j + 1 < slots.length && !slots[j + 1].lunch && grid[j + 1]?.[d] === subjIdx) j++;
-        const sub = subs[subjIdx];
-        if (sub && sub.name.trim()) {
-          const key = sub.code.trim() ? sub.code.trim().toUpperCase() : sub.name.trim().toLowerCase();
-          if (!groups[key]) { groups[key] = { name: sub.name.trim(), code: sub.code.trim(), kind: sub.kind, schedule: {}, sessions: [] }; order.push(key); }
-          const g = groups[key]; const start = slots[i].start, end = slots[j].end, p = perOf(start, end); const dayName = MB_DAYS[d];
-          g.schedule[dayName] = (g.schedule[dayName] || 0) + p;
-          if (sub.kind === "lab") g.kind = "lab";
-          (g.sessions as unknown[]).push({ day: dayName, start, end, periods: p });
-        }
-        i = j + 1;
-      }
-    }
-    const rows = order.map((k) => groups[k]).filter((r) => Object.values(r.schedule).some((v) => v > 0));
+    const rows = buildRows(slots, subs, grid);
     if (!rows.length) return alert("Place at least one subject in the grid first.");
-    const res = await api.saveTimetable({ batchName: batch.trim(), subjects: rows });
-    if (!res.ok) return alert(res.error || "Could not save.");
-    refresh(); setIsEditing(false);
+    setSaving(true);
+    try {
+      const res = await api.saveTimetable({ batchName: batch.trim(), subjects: rows });
+      if (!res.ok) return alert(res.error || "Could not save.");
+      refresh(); setIsEditing(false);
+    } catch (e) {
+      alert(`Could not save the timetable: ${String((e as any)?.message ?? e)}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div>
       <PageHeader title="Timetable" subtitle="Build your weekly schedule — private and offline." icon={<CalendarRange className="w-6 h-6" />}
-        actions={!isEditing ? <Button variant="secondary" onClick={() => setIsEditing(true)} icon={<Pencil className="w-4 h-4" />}>Edit</Button> : undefined} />
+        actions={!isEditing ? <Button variant="secondary" onClick={startEditing} icon={<Pencil className="w-4 h-4" />}>Edit</Button> : undefined} />
 
       <AnimatePresence mode="wait">
         {isEditing ? (
@@ -97,7 +99,7 @@ export function Timetable() {
                     <input value={s.name} onChange={(e) => updSub(i, { name: e.target.value })} placeholder="e.g. Data Structures" className={inputCls} />
                     <input value={s.code} onChange={(e) => updSub(i, { code: e.target.value })} placeholder="CS201" className={inputCls} />
                     <select value={s.kind} onChange={(e) => updSub(i, { kind: e.target.value })} className={inputCls}><option value="lecture">Lecture</option><option value="lab">Lab</option></select>
-                    <button onClick={() => setSubs((p) => p.filter((_, j) => j !== i))} className="w-10 h-11 grid place-items-center rounded-[var(--r)] text-[var(--text-3)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-colors"><X className="w-4 h-4" /></button>
+                    <button onClick={() => removeSub(i)} aria-label="Remove subject" className="w-10 h-11 grid place-items-center rounded-[var(--r)] text-[var(--text-3)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-colors"><X className="w-4 h-4" /></button>
                   </div>
                 ))}
                 <Button variant="soft" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setSubs((p) => [...p, { name: "", code: "", kind: "lecture" }])}>Add subject</Button>
@@ -135,7 +137,7 @@ export function Timetable() {
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
                   {tt?.subjects?.length ? <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button> : null}
-                  <Button onClick={build} icon={<Save className="w-4 h-4" />}>Save timetable</Button>
+                  <Button onClick={build} disabled={saving} icon={<Save className="w-4 h-4" />}>{saving ? "Saving…" : "Save timetable"}</Button>
                 </div>
               </AnimatedCard>
             )}
@@ -143,7 +145,7 @@ export function Timetable() {
         ) : (
           <motion.div key="view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {!tt?.subjects?.length ? (
-              <EmptyState title="No timetable yet" message="Add your subjects and place them on the grid to generate your weekly schedule." actionLabel="Build it" onAction={() => setIsEditing(true)} />
+              <EmptyState title="No timetable yet" message="Add your subjects and place them on the grid to generate your weekly schedule." actionLabel="Build it" onAction={startEditing} />
             ) : <ReadGrid tt={tt} />}
           </motion.div>
         )}

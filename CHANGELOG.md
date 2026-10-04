@@ -3,6 +3,55 @@
 All notable changes to WOLF Attendance are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.1.1] — 2026-10-04
+### Fixed
+- **Timetable period counts** — periods were estimated from clock hours, so 45/50-minute
+  periods were under-counted (a 3 × 45-min lab was saved as 2 periods), skewing every
+  attendance requirement. Each grid slot now counts as exactly one period.
+- **Deleting a subject in the timetable builder** shifted every later subject's grid
+  cells onto the wrong subject. Cells are now re-pointed correctly.
+- **"Edit" timetable** started from a blank form and wiped the saved timetable on save.
+  It now opens pre-filled with the existing subjects and grid.
+- **"Can still skip" days** were matched by subject *name*, so two subjects sharing a
+  name counted each other's free days. Now matched by the stable subject key (wolf-core).
+- **Corrupt `data.json`** was silently replaced by an empty profile on the next save. It
+  is now backed up as `data.corrupt-<timestamp>.json` first.
+- **Settings could report "saved" on failure** (e.g. end date before start date). Errors
+  are now shown, and the start/end check runs on the merged settings.
+- **Broken CSS comment** (`p-*/m-*`) closed itself early and dropped a base style rule.
+- **Inherited per-class marks** — clicking a mark inherited from the whole-day mark now
+  pins it as an override instead of doing nothing.
+- **Insights trend & streaks** counted days before tracking started, and counted a day
+  with one skipped class as fully attended.
+- **Silent fallback to browser storage** inside the desktop app if the backend call
+  failed; the app now shows a clear "couldn't load your data" screen with a retry.
+
+### Added
+- **Reminders & start-up settings** — the evening reminder, its time, "Start with
+  Windows" and a "Send a test" button (the backend supported these, but the UI had no
+  way to turn them on). Shows where your data file lives.
+- **Single-instance** — launching WOLF while it's already running (e.g. from the tray)
+  focuses the existing window instead of starting a second process that races it on
+  `data.json`.
+- **Working search** in the top bar (pages, subjects, exams; ↑/↓/Enter) and the correct
+  `Ctrl K` hint on Windows.
+- **Frontend test suite** (Vitest) and Rust unit tests for settings validation, storage
+  round-trips and corrupt-file recovery.
+
+### Changed
+- **Focus page** now shows real data: completed Pomodoro sessions are logged per day
+  and drive the consistency heatmap, streaks and totals (previously random/hard-coded).
+  The timer keeps accurate time when minimised and survives page changes.
+- **Academics** tasks and CGPA rows are saved on the device and start empty (previously
+  demo data that reset on every visit); GPA input respects the configured scale.
+- **Fonts are bundled** instead of loaded from Google Fonts, so the app makes no network
+  request and looks the same offline.
+- **Reminders** fire within 30 minutes of the chosen time (not only on the exact minute),
+  so a sleeping laptop still gets the day's reminder; reminder times are validated.
+- `open_external` only opens `http(s)` / `mailto` links.
+- Release binary renamed from `app.exe` to `wolf-attendance.exe`; version comes from
+  `Cargo.toml`. Dependencies updated to clear all `npm audit` advisories.
+
 ## [3.1.0] — 2026-07-18
 ### Removed
 - **AI timetable import & the entire bring-your-own-key (BYOK) subsystem.** The

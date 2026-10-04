@@ -11,16 +11,12 @@ import { daysUntil } from "../analytics";
 import { dayLabel } from "../lib/utils";
 import type { Exam } from "../types";
 import { stagger, rise } from "../lib/motion";
+import { usePersistentState } from "../lib/usePersistentState";
 
 type Tab = "tasks" | "cgpa" | "exams";
 type Task = { id: string; title: string; course: string; status: "todo" | "doing" | "done" };
 
-const seedTasks: Task[] = [
-  { id: "1", title: "Data Structures Assignment 3", course: "CS-201", status: "todo" },
-  { id: "2", title: "Read Chapter 4", course: "PHY-101", status: "todo" },
-  { id: "3", title: "Lab Report Analysis", course: "CHEM-L", status: "doing" },
-  { id: "4", title: "Calculus Worksheet", course: "MTH-102", status: "done" },
-];
+type Sem = { id: number; gpa: number; credits: number };
 
 export function Academics() {
   const [tab, setTab] = useState<Tab>("tasks");
@@ -44,9 +40,9 @@ export function Academics() {
   );
 }
 
-/* ── Tasks (local demo board) ── */
+/* ── Tasks (saved on this device) ── */
 function TasksBoard() {
-  const [tasks, setTasks] = useState<Task[]>(seedTasks);
+  const [tasks, setTasks] = usePersistentState<Task[]>("tasks", []);
   const [adding, setAdding] = useState("");
   const cols: { id: Task["status"]; label: string; color: string }[] = [
     { id: "todo", label: "To do", color: "var(--text-3)" },
@@ -54,7 +50,8 @@ function TasksBoard() {
     { id: "done", label: "Done", color: "var(--go)" },
   ];
   const cycle = (id: string) => setTasks((t) => t.map((x) => x.id === id ? { ...x, status: x.status === "todo" ? "doing" : x.status === "doing" ? "done" : "todo" } : x));
-  const add = () => { if (!adding.trim()) return; setTasks((t) => [...t, { id: Date.now().toString(), title: adding.trim(), course: "NEW", status: "todo" }]); setAdding(""); };
+  const add = () => { if (!adding.trim()) return; setTasks((t) => [...t, { id: Date.now().toString(), title: adding.trim(), course: "TASK", status: "todo" }]); setAdding(""); };
+  const removeTask = (id: string) => setTasks((t) => t.filter((x) => x.id !== id));
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" exit={{ opacity: 0, y: -16 }} className="grid md:grid-cols-3 gap-5">
@@ -70,7 +67,15 @@ function TasksBoard() {
                 className="w-full text-left p-4 rounded-[var(--r)] bg-[var(--surface)] border border-[var(--border)] shadow-[var(--shadow-sm)] hover:border-[var(--accent)] transition-colors group">
                 <div className="flex justify-between items-start gap-2 mb-2">
                   <span className="text-[11px] font-black text-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 rounded-md">{t.course}</span>
-                  {t.status === "done" && <Check className="w-4 h-4 text-[var(--go)]" />}
+                  <span className="flex items-center gap-1">
+                    {t.status === "done" && <Check className="w-4 h-4 text-[var(--go)]" />}
+                    <span role="button" tabIndex={0} aria-label="Delete task" title="Delete task"
+                      onClick={(e) => { e.stopPropagation(); removeTask(t.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); removeTask(t.id); } }}
+                      className="p-0.5 rounded text-[var(--text-3)] opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] transition-opacity">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </span>
+                  </span>
                 </div>
                 <p className={`font-bold text-sm ${t.status === "done" ? "line-through text-[var(--text-3)]" : ""}`}>{t.title}</p>
               </motion.button>
@@ -91,7 +96,9 @@ function TasksBoard() {
 
 /* ── CGPA (semester calculator) ── */
 function CgpaCalc() {
-  const [sems, setSems] = useState([{ id: 1, gpa: 8.4, credits: 22 }, { id: 2, gpa: 8.9, credits: 24 }]);
+  const { st } = useApp();
+  const scale = st?.settings?.gpaScale || 10;
+  const [sems, setSems] = usePersistentState<Sem[]>("cgpa_semesters", []);
   const totalCr = sems.reduce((a, s) => a + s.credits, 0);
   const cgpa = sems.reduce((a, s) => a + s.gpa * s.credits, 0) / (totalCr || 1);
   const upd = (i: number, patch: Partial<{ gpa: number; credits: number }>) => setSems((p) => p.map((x, j) => j === i ? { ...x, ...patch } : x));
@@ -105,14 +112,17 @@ function CgpaCalc() {
             <Button size="sm" variant="soft" icon={<Plus className="w-4 h-4" />} onClick={() => setSems((p) => [...p, { id: Date.now(), gpa: 0, credits: 20 }])}>Add</Button>
           </div>
           <div className="space-y-2">
+            {sems.length === 0 && (
+              <p className="text-sm font-semibold text-[var(--text-3)] py-6 text-center">Add each completed semester's GPA and credits to see your CGPA (out of {scale}).</p>
+            )}
             {sems.map((s, i) => (
               <div key={s.id} className="flex items-center gap-3 p-3 rounded-[var(--r)] bg-[var(--surface-2)] border border-[var(--border)]">
                 <span className="font-black w-28 shrink-0">Semester {i + 1}</span>
                 <label className="text-xs font-bold text-[var(--text-3)]">GPA</label>
-                <input type="number" min={0} max={10} step={0.1} value={s.gpa} onChange={(e) => upd(i, { gpa: parseFloat(e.target.value) || 0 })}
+                <input type="number" min={0} max={scale} step={0.1} value={s.gpa} onChange={(e) => upd(i, { gpa: Math.min(scale, Math.max(0, parseFloat(e.target.value) || 0)) })}
                   className="w-20 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-xs)] px-3 py-1.5 text-sm font-black outline-none focus:border-[var(--accent)]" />
                 <label className="text-xs font-bold text-[var(--text-3)]">Credits</label>
-                <input type="number" min={0} max={40} value={s.credits} onChange={(e) => upd(i, { credits: parseInt(e.target.value) || 0 })}
+                <input type="number" min={0} max={40} value={s.credits} onChange={(e) => upd(i, { credits: Math.max(0, parseInt(e.target.value) || 0) })}
                   className="w-20 bg-[var(--surface)] border border-[var(--border)] rounded-[var(--r-xs)] px-3 py-1.5 text-sm font-black outline-none focus:border-[var(--accent)]" />
                 <span className="ml-auto font-bold text-[var(--text-2)] tabnums">{(s.gpa * s.credits).toFixed(1)} pts</span>
                 <button onClick={() => setSems((p) => p.filter((_, j) => j !== i))} className="p-1.5 text-[var(--text-3)] hover:text-[var(--danger)] transition-colors"><X className="w-4 h-4" /></button>
@@ -126,7 +136,7 @@ function CgpaCalc() {
           <div className="w-20 h-20 rounded-[var(--r-lg)] bg-[image:var(--grad)] grid place-items-center text-white shadow-[var(--shadow-glow)] mb-5"><TrendingUp className="w-10 h-10" /></div>
           <div className="text-[var(--text-3)] font-black uppercase tracking-widest text-xs mb-2">Cumulative GPA</div>
           <div className="text-6xl font-black tabnums text-gradient">{cgpa.toFixed(2)}</div>
-          <p className="mt-4 text-sm font-semibold text-[var(--text-3)] px-6">Across {totalCr} credits. Keep it climbing! 🚀</p>
+          <p className="mt-4 text-sm font-semibold text-[var(--text-3)] px-6">{totalCr > 0 ? <>Out of {scale}, across {totalCr} credits. Keep it climbing! 🚀</> : "No semesters added yet."}</p>
         </AnimatedCard>
       </motion.div>
     </motion.div>
@@ -140,7 +150,12 @@ function ExamsPanel() {
   const [exams, setExams] = useState<Exam[]>(st?.exams || []);
   const [form, setForm] = useState({ title: "", subject: "", date: "" });
 
-  const persist = async (next: Exam[]) => { setExams(next); try { await api.saveExams(next); refresh(); } catch { /* mock */ } };
+  const persist = async (next: Exam[]) => {
+    const prev = exams;
+    setExams(next);
+    try { await api.saveExams(next); refresh(); }
+    catch (e) { setExams(prev); alert(`Could not save exams: ${String((e as any)?.message ?? e)}`); }
+  };
   const addExam = () => {
     if (!form.title.trim() || !form.date) return;
     persist([...exams, { id: Date.now().toString(), title: form.title.trim(), subject: form.subject.trim(), date: form.date, done: false }]);

@@ -25,14 +25,9 @@ export function Onboarding() {
       // All we can honestly capture here is the date to start counting from.
       trackingStart: joining === "mid" ? trackFrom : "",
     };
-    try { await api.saveSettings(patch); } catch { /* mock */ }
-    if (!(window as any).__TAURI_INTERNALS__) {
-      const raw = localStorage.getItem("wolf_state");
-      const s = raw ? JSON.parse(raw) : { settings: {} };
-      s.settings = { ...(s.settings || {}), ...patch };
-      localStorage.setItem("wolf_state", JSON.stringify(s));
-    }
-    setTimeout(refresh, 150);
+    try { await api.saveSettings(patch); } catch (e) { console.error(e); }
+    refresh();
+    setBusy(false);
   };
 
   const next = () => setStep((s) => Math.min(total - 1, s + 1));

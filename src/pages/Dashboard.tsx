@@ -19,6 +19,17 @@ import { stagger, rise } from "../lib/motion";
 import { dayLabel } from "../lib/utils";
 
 const nowHHMM = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+// Human wording for the planner's machine-readable `todayAction`.
+const TODAY_ACTION: Record<string, string> = {
+  go: "Go to class today",
+  recommended: "Buffer day — go if you can",
+  "stay-home": "Free to stay home today",
+  holiday: "Holiday today",
+  cancelled: "Classes cancelled today",
+  sunday: "It's Sunday",
+  "no-college": "No classes today",
+};
+
 const toMin = (t: string) => { const [h, m] = (t || "0:0").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 
 export function Dashboard() {
@@ -62,11 +73,13 @@ export function Dashboard() {
   const overrides = st.subjectAttendance?.[today] || {};
   const markDay = async (m: Mark | null) => {
     if (!today) return;
-    try { await api.markDay(today, m ?? ""); refresh(); } catch { /* ignore */ }
+    try { await api.markDay(today, m ?? ""); } catch (e) { console.error(e); }
+    refresh();
   };
   const markOne = async (key: string, m: Mark | null) => {
     if (!today) return;
-    try { await api.markSubject(today, key, m ?? ""); refresh(); } catch { /* ignore */ }
+    try { await api.markSubject(today, key, m ?? ""); } catch (e) { console.error(e); }
+    refresh();
   };
 
   return (
@@ -79,7 +92,7 @@ export function Dashboard() {
             <div className="p-8 lg:p-10">
               <div className="flex items-center gap-2 mb-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] text-xs font-black uppercase tracking-widest">
-                  <Sparkles className="w-3.5 h-3.5" /> {b.todayAction || "Your plan"}
+                  <Sparkles className="w-3.5 h-3.5" /> {TODAY_ACTION[b.todayAction] || "Your plan"}
                 </span>
               </div>
               <h2 className="text-3xl lg:text-[2.6rem] font-black tracking-tight leading-[1.08] font-display mb-3">

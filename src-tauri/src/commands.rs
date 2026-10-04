@@ -10,12 +10,19 @@ use crate::{config, dateutils};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use tauri::{AppHandle, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_notification::NotificationExt;
 
 pub type SharedStore = Mutex<Store>;
+
+/// Lock the store, recovering from a poisoned mutex. A panic in one command
+/// must not brick every later command (and the reminder thread) for the rest
+/// of the session — the data itself is still valid.
+pub fn lock(store: &SharedStore) -> MutexGuard<'_, Store> {
+    store.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 const WEEKDAYS: [&str; 6] = [
     "Monday",
@@ -137,7 +144,11 @@ fn apply_settings_patch(s: &mut Settings, patch: &HashMap<String, Value>) {
             "firstName" => set_str(&mut s.first_name, v),
             "age" => set_str(&mut s.age, v),
             "email" => set_str(&mut s.email, v),
-            "reminderTime" => set_str(&mut s.reminder_time, v),
+            "reminderTime" => {
+                if let Some(t) = v.as_str().and_then(normalize_hhmm) {
+                    s.reminder_time = t;
+                }
+            }
             "onboarded" => set_bool(&mut s.onboarded, v),
             "reminderEnabled" => set_bool(&mut s.reminder_enabled, v),
             "autostartEnabled" => set_bool(&mut s.autostart_enabled, v),
@@ -190,6 +201,16 @@ fn apply_settings_patch(s: &mut Settings, patch: &HashMap<String, Value>) {
     }
 }
 
+/// "9:5", "09:05" or "09:05:00" -> "09:05". Anything unparseable is rejected so
+/// the reminder scheduler always compares like with like.
+pub fn normalize_hhmm(t: &str) -> Option<String> {
+    let t = t.trim();
+    chrono::NaiveTime::parse_from_str(t, "%H:%M")
+        .or_else(|_| chrono::NaiveTime::parse_from_str(t, "%H:%M:%S"))
+        .ok()
+        .map(|x| x.format("%H:%M").to_string())
+}
+
 fn set_str(field: &mut String, v: &Value) {
     if let Some(x) = v.as_str() {
         *field = x.to_string();
@@ -205,19 +226,27 @@ fn set_bool(field: &mut bool, v: &Value) {
 // ---- commands -------------------------------------------------------------
 #[tauri::command]
 pub fn bootstrap(store: State<SharedStore>) -> StateResp {
-    let s = store.lock().unwrap();
+    let s = lock(&store);
     make_state(&s, true, None)
 }
 
 #[tauri::command]
 pub fn save_settings(patch: HashMap<String, Value>, store: State<SharedStore>) -> StateResp {
-    let mut s = store.lock().unwrap();
-    // Mirror the old server: only validate order when both dates are in the patch.
-    if let (Some(a), Some(b)) = (
-        patch.get("semesterStart").and_then(|v| v.as_str()),
-        patch.get("semesterEnd").and_then(|v| v.as_str()),
-    ) {
-        if !a.is_empty() && !b.is_empty() && a > b {
+    let mut s = lock(&store);
+    // Validate the *merged* result, so changing only one of the two dates can't
+    // sneak an end-before-start semester past the check.
+    let mut next = s.settings().clone();
+    apply_settings_patch(&mut next, &patch);
+    let (a, b) = (next.semester_start.as_str(), next.semester_end.as_str());
+    if !a.is_empty() && !b.is_empty() {
+        if dateutils::parse_iso(a).is_none() || dateutils::parse_iso(b).is_none() {
+            return make_state(
+                &s,
+                false,
+                Some("Semester dates must be valid dates.".into()),
+            );
+        }
+        if a > b {
             return make_state(
                 &s,
                 false,
@@ -225,21 +254,23 @@ pub fn save_settings(patch: HashMap<String, Value>, store: State<SharedStore>) -
             );
         }
     }
-    apply_settings_patch(&mut s.data.settings, &patch);
-    let _ = s.save();
+    s.data.settings = next;
+    if let Err(e) = s.save() {
+        return make_state(&s, false, Some(format!("Could not save your data: {e}")));
+    }
     make_state(&s, true, None)
 }
 
 #[tauri::command]
 pub fn add_holiday(date: String, store: State<SharedStore>) -> StateResp {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     s.add_holiday(&date);
     make_state(&s, true, None)
 }
 
 #[tauri::command]
 pub fn remove_holiday(date: String, store: State<SharedStore>) -> StateResp {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     s.remove_holiday(&date);
     make_state(&s, true, None)
 }
@@ -257,7 +288,7 @@ fn clean_mark(status: &str) -> String {
 
 #[tauri::command]
 pub fn mark_day(date: String, status: String, store: State<SharedStore>) -> MarkResponse {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     s.mark_day(&date, &clean_mark(&status));
     MarkResponse {
         ok: true,
@@ -273,7 +304,7 @@ pub fn mark_subject(
     status: String,
     store: State<SharedStore>,
 ) -> MarkResponse {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     s.mark_subject(&date, &subject_key, &clean_mark(&status));
     MarkResponse {
         ok: true,
@@ -284,7 +315,7 @@ pub fn mark_subject(
 /// Clear every per-subject override on a date, falling back to the day mark.
 #[tauri::command]
 pub fn clear_subject_marks(date: String, store: State<SharedStore>) -> MarkResponse {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     s.data.subject_attendance.remove(&date);
     let _ = s.save();
     MarkResponse {
@@ -319,7 +350,7 @@ pub struct SaveTimetablePayload {
 
 #[tauri::command]
 pub fn save_timetable(payload: SaveTimetablePayload, store: State<SharedStore>) -> StateResp {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     let mut clean: Vec<TtSubject> = Vec::new();
     for subj in &payload.subjects {
         let name = subj.name.trim().to_string();
@@ -377,7 +408,7 @@ pub fn save_timetable(payload: SaveTimetablePayload, store: State<SharedStore>) 
 /// Replace the saved GPA course list (grades tracker).
 #[tauri::command]
 pub fn save_courses(courses: Vec<Course>, store: State<SharedStore>) -> StateResp {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     let clean: Vec<Course> = courses
         .into_iter()
         .filter(|c| !c.name.trim().is_empty())
@@ -395,7 +426,7 @@ pub fn save_courses(courses: Vec<Course>, store: State<SharedStore>) -> StateRes
 /// Replace the saved exam list (countdown board).
 #[tauri::command]
 pub fn save_exams(exams: Vec<Exam>, store: State<SharedStore>) -> StateResp {
-    let mut s = store.lock().unwrap();
+    let mut s = lock(&store);
     let clean: Vec<Exam> = exams
         .into_iter()
         .filter(|e| !e.title.trim().is_empty())
@@ -411,16 +442,35 @@ pub fn save_exams(exams: Vec<Exam>, store: State<SharedStore>) -> StateResp {
     make_state(&s, true, None)
 }
 
+/// Open a web/mail link in the user's default app. Only http(s) and mailto are
+/// allowed: handing an arbitrary string to the OS shell would let any page
+/// content launch local programs or files.
 #[tauri::command]
 pub fn open_external(url: String) -> Result<(), String> {
-    open::that(&url).map_err(|e| e.to_string())
+    let u = url.trim();
+    let lower = u.to_ascii_lowercase();
+    if !(lower.starts_with("https://")
+        || lower.starts_with("http://")
+        || lower.starts_with("mailto:"))
+    {
+        return Err("Only http(s) and mailto links can be opened.".into());
+    }
+    open::that(u).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn set_autostart(enabled: bool, app: AppHandle, store: State<SharedStore>) -> StateResp {
     let mgr = app.autolaunch();
-    let _ = if enabled { mgr.enable() } else { mgr.disable() };
-    let mut s = store.lock().unwrap();
+    let res = if enabled { mgr.enable() } else { mgr.disable() };
+    let mut s = lock(&store);
+    if let Err(e) = res {
+        // Keep the stored flag truthful: it only flips when the OS accepted it.
+        return make_state(
+            &s,
+            false,
+            Some(format!("Could not change start-up setting: {e}")),
+        );
+    }
     s.data.settings.autostart_enabled = enabled;
     let _ = s.save();
     make_state(&s, true, None)
@@ -431,7 +481,7 @@ pub fn set_autostart(enabled: bool, app: AppHandle, store: State<SharedStore>) -
 #[tauri::command]
 pub fn test_reminder(app: AppHandle, store: State<SharedStore>) -> Result<(), String> {
     let (is_college, body) = {
-        let s = store.lock().unwrap();
+        let s = lock(&store);
         tomorrow_message(&s)
     };
     let title = if is_college {
@@ -445,4 +495,82 @@ pub fn test_reminder(app: AppHandle, store: State<SharedStore>) -> Result<(), St
         .body(body)
         .show()
         .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn patch(v: Value) -> HashMap<String, Value> {
+        serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn reminder_time_is_normalised_or_rejected() {
+        assert_eq!(normalize_hhmm("9:05").as_deref(), Some("09:05"));
+        assert_eq!(normalize_hhmm("20:00:00").as_deref(), Some("20:00"));
+        assert_eq!(normalize_hhmm("25:00"), None);
+        assert_eq!(normalize_hhmm("tonight"), None);
+
+        let mut s = Settings::default();
+        apply_settings_patch(&mut s, &patch(json!({ "reminderTime": "7:30" })));
+        assert_eq!(s.reminder_time, "07:30");
+        apply_settings_patch(&mut s, &patch(json!({ "reminderTime": "garbage" })));
+        assert_eq!(s.reminder_time, "07:30", "bad input must not overwrite");
+    }
+
+    #[test]
+    fn percentages_are_clamped_and_strings_accepted() {
+        let mut s = Settings::default();
+        apply_settings_patch(
+            &mut s,
+            &patch(json!({ "minPercent": "150", "labPercent": -4, "targetPercent": "80" })),
+        );
+        assert_eq!(s.min_percent, 100.0);
+        assert_eq!(s.lab_percent, 0.0);
+        assert_eq!(s.target_percent, 80.0);
+    }
+
+    #[test]
+    fn baselines_are_sanitised() {
+        let mut s = Settings::default();
+        apply_settings_patch(
+            &mut s,
+            &patch(json!({ "baselines": {
+                "CS201": { "conducted": 10, "attended": 14 },
+                "PHY":   { "conducted": 0,  "attended": 0 },
+                "MTH":   { "conducted": "8", "attended": "-3" }
+            }})),
+        );
+        assert_eq!(s.baselines["CS201"].attended, 10);
+        assert!(!s.baselines.contains_key("PHY"));
+        assert_eq!(s.baselines["MTH"].attended, 0);
+    }
+
+    #[test]
+    fn unknown_attendance_mode_is_ignored() {
+        let mut s = Settings::default();
+        apply_settings_patch(&mut s, &patch(json!({ "attendanceMode": "everything" })));
+        assert_eq!(s.attendance_mode, "both");
+        apply_settings_patch(&mut s, &patch(json!({ "attendanceMode": "labs" })));
+        assert_eq!(s.attendance_mode, "labs");
+    }
+
+    #[test]
+    fn only_web_and_mail_links_can_be_opened() {
+        // Rejected before anything is handed to the OS.
+        assert!(open_external("C:\\Windows\\System32\\calc.exe".into()).is_err());
+        assert!(open_external("file:///etc/passwd".into()).is_err());
+        assert!(open_external("javascript:alert(1)".into()).is_err());
+    }
+
+    #[test]
+    fn marks_are_whitelisted() {
+        assert_eq!(clean_mark("attended"), "attended");
+        assert_eq!(clean_mark("skipped"), "skipped");
+        assert_eq!(clean_mark("cancelled"), "cancelled");
+        assert_eq!(clean_mark("Attended"), "");
+        assert_eq!(clean_mark("present"), "");
+    }
 }

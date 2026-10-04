@@ -179,7 +179,7 @@ function DayCell({ info, dn, onOpen }: { info: Day; dn: number; onOpen: () => vo
         <div className="flex items-center gap-1 shrink-0">
           {info.hasLab && <FlaskConical className="w-3 h-3 text-[var(--lab)]" />}
           {todayCell ? (
-            <span className="flex h-2.5 w-2.5">
+            <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute h-2.5 w-2.5 rounded-full bg-[var(--accent)] opacity-70" />
               <span className="relative rounded-full h-2.5 w-2.5 bg-[var(--accent)]" />
             </span>

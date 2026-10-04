@@ -21,15 +21,18 @@ export function Analytics() {
   const stats = overallStats(plan);
 
   // Real cumulative-attendance curve from past teaching days.
+  // Counted per subject, so a day where one class was skipped is not shown as
+  // fully attended; days before tracking started are covered by the baseline.
   const past = (plan.days || [])
-    .filter((d) => d.isPast && d.category !== "holiday" && d.totalLectures > 0)
+    .filter((d) => d.isPast && d.category !== "holiday" && d.category !== "pre-tracking" && d.totalLectures > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
   let cAtt = 0, cCon = 0;
   const trend: number[] = [];
   for (const d of past) {
-    const attended = d.category !== "past-skipped" && d.marked !== "skipped";
-    cCon += d.totalLectures;
-    if (attended) cAtt += d.totalLectures;
+    for (const s of d.subjects || []) {
+      cCon += s.count;
+      if (s.mark !== "skipped") cAtt += s.count;
+    }
     trend.push(cCon > 0 ? (cAtt / cCon) * 100 : 100);
   }
   const points = trend.length >= 2 ? trend : [stats.pct, stats.pct];

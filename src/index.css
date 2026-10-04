@@ -7,7 +7,7 @@
    so flipping the mode transforms the ENTIRE app automatically.
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&family=Outfit:wght@500;600;700;800;900&display=swap');
+/* Fonts are bundled locally — see src/fonts.ts. */
 @import "tailwindcss";
 
 /* ===================== COLLEGE · LIGHT (default) ===================== */
@@ -221,7 +221,7 @@
 /* ===================== Reset ===================== */
 /* NOTE: keep box-sizing in @layer base so it never overrides Tailwind's
    padding/margin utilities. An unlayered `* { margin:0; padding:0 }` would
-   win the cascade over EVERY p-*/m-*/space-y-* utility. Tailwind preflight
+   win the cascade over EVERY padding, margin and space-y utility. Tailwind preflight
    already zeroes default element margins for us. */
 @layer base {
   *, ::before, ::after { box-sizing: border-box; }

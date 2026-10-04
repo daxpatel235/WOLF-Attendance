@@ -43,7 +43,10 @@ export function MarkControl({ value, onChange, size = "md", labels = true, inher
             disabled={disabled}
             whileTap={disabled ? undefined : { scale: 0.93 }}
             whileHover={disabled ? undefined : { y: -1 }}
-            onClick={() => onChange(active ? null : m)}
+            // An *inherited* mark (coming from the whole-day mark) is not a real
+            // override, so clicking it pins it explicitly instead of "clearing"
+            // something that was never set.
+            onClick={() => onChange(active && !inherited ? null : m)}
             title={meta.hint}
             aria-pressed={active}
             // Icon-only variants still need a name for screen readers.

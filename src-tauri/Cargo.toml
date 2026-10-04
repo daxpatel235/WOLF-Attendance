@@ -1,6 +1,6 @@
 [package]
-name = "app"
-version = "3.1.0"
+name = "wolf-attendance"
+version = "3.1.1"
 description = "WOLF Attendance — minimum-days attendance planner"
 authors = ["Patel"]
 license = "MIT"
@@ -28,6 +28,12 @@ open = "5"
 # The attendance algorithm lives in its own pure, fuzz-tested crate so the exact
 # same logic can run here, on the cloud API and (via WASM) in the browser.
 wolf-core = { path = "../wolf-core" }
+
+# Desktop only: a second launch (e.g. double-clicking the shortcut while the app
+# sits in the tray) focuses the running window instead of starting a second
+# process that would race the first one writing data.json.
+[target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
 
 [profile.release]
 codegen-units = 1

@@ -15,7 +15,22 @@ use tauri::{
 };
 use tauri_plugin_notification::NotificationExt;
 
-type SharedStore = Mutex<Store>;
+use commands::{lock, SharedStore};
+
+/// The reminder fires any time inside this window after the chosen minute, so a
+/// laptop that was asleep (or a busy machine that skipped a poll) at exactly
+/// HH:MM still gets today's reminder.
+const REMINDER_GRACE_MIN: i64 = 30;
+
+fn minutes_of(hhmm: &str) -> Option<i64> {
+    let (h, m) = hhmm.trim().split_once(':')?;
+    let (h, m): (i64, i64) = (h.parse().ok()?, m.parse().ok()?);
+    if (0..24).contains(&h) && (0..60).contains(&m) {
+        Some(h * 60 + m)
+    } else {
+        None
+    }
+}
 
 fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -27,7 +42,16 @@ fn show_main(app: &tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // Must be the first plugin registered so a second launch exits before it
+    // initialises anything else.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        show_main(app);
+    }));
+
+    builder
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -35,10 +59,7 @@ pub fn run() {
         ))
         .setup(|app| {
             // On-device data dir, e.g. %APPDATA%\<identifier>\data.json on Windows.
-            let dir = app
-                .path()
-                .app_data_dir()
-                .expect("could not resolve app data directory");
+            let dir = app.path().app_data_dir()?;
             app.manage(Mutex::new(Store::load(dir)));
 
             // System-tray icon with a small menu.
@@ -46,7 +67,11 @@ pub fn run() {
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
             let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(
+                    app.default_window_icon()
+                        .cloned()
+                        .ok_or("missing default window icon")?,
+                )
                 .tooltip("WOLF Attendance")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
@@ -80,13 +105,10 @@ pub fn run() {
             std::thread::spawn(move || {
                 let mut last_notified = String::new();
                 loop {
-                    std::thread::sleep(Duration::from_secs(45));
+                    std::thread::sleep(Duration::from_secs(30));
                     let (enabled, when, today) = {
                         let state = handle.state::<SharedStore>();
-                        let s = match state.lock() {
-                            Ok(s) => s,
-                            Err(_) => continue,
-                        };
+                        let s = lock(&state);
                         (
                             s.settings().reminder_enabled,
                             s.settings().reminder_time.clone(),
@@ -96,15 +118,19 @@ pub fn run() {
                     if !enabled || last_notified == today {
                         continue;
                     }
-                    let now = chrono::Local::now().format("%H:%M").to_string();
-                    if now == when {
+                    let Some(target) = minutes_of(&when) else {
+                        continue;
+                    };
+                    let now = {
+                        use chrono::Timelike;
+                        let t = chrono::Local::now();
+                        i64::from(t.hour()) * 60 + i64::from(t.minute())
+                    };
+                    if now >= target && now < target + REMINDER_GRACE_MIN {
                         last_notified = today;
                         let (is_college, body) = {
                             let state = handle.state::<SharedStore>();
-                            let s = match state.lock() {
-                                Ok(s) => s,
-                                Err(_) => continue,
-                            };
+                            let s = lock(&state);
                             commands::tomorrow_message(&s)
                         };
                         let title = if is_college {
@@ -128,12 +154,11 @@ pub fn run() {
         // the scheduler keeps running in the background.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                let keep = window
-                    .app_handle()
-                    .state::<SharedStore>()
-                    .lock()
-                    .map(|s| s.settings().reminder_enabled)
-                    .unwrap_or(false);
+                let keep = {
+                    let state = window.app_handle().state::<SharedStore>();
+                    let s = lock(&state);
+                    s.settings().reminder_enabled
+                };
                 if keep {
                     api.prevent_close();
                     let _ = window.hide();
@@ -157,4 +182,17 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::minutes_of;
+
+    #[test]
+    fn reminder_minutes_parse() {
+        assert_eq!(minutes_of("20:00"), Some(1200));
+        assert_eq!(minutes_of("00:05"), Some(5));
+        assert_eq!(minutes_of("24:00"), None);
+        assert_eq!(minutes_of(""), None);
+    }
 }

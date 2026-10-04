@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Settings as SettingsIcon, User, Building2, Target, Check, Backpack, GraduationCap, History } from "lucide-react";
+import { Settings as SettingsIcon, User, Building2, Target, Check, Backpack, GraduationCap, History, Bell, Power, AlertTriangle, HardDrive } from "lucide-react";
 import { useApp } from "../store";
-import { api } from "../api";
+import { api, isTauri } from "../api";
 import { AnimatedCard } from "../components/ui/AnimatedCard";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
@@ -15,6 +15,10 @@ export function Settings() {
   const { st, refresh, setMode } = useApp();
   const [f, setF] = useState<any>({ ...(st?.settings || {}) });
   const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const flashErr = (m: string) => { setErr(m); setTimeout(() => setErr(null), 4500); };
   const set = (k: string, v: unknown) => setF((p: any) => ({ ...p, [k]: v }));
 
   // A baseline only exists if there's a tracking start to anchor it to.
@@ -23,20 +27,57 @@ export function Settings() {
   const subjects = st?.plan?.subjects || [];
 
   const save = async () => {
-    await api.saveSettings({
-      firstName: f.firstName, age: String(f.age || ""), email: f.email,
-      institutionType: f.institutionType, institutionName: f.institutionName, className: f.className,
-      division: f.division, semester: f.semester, timetableName: f.timetableName, batchName: f.batchName,
-      semesterStart: f.semesterStart, semesterEnd: f.semesterEnd,
-      minPercent: +f.minPercent, labPercent: +f.labPercent, targetPercent: +f.targetPercent,
-      attendanceMode: f.attendanceMode,
-      // Turning catch-up off clears both halves, so a stale baseline can never
-      // keep skewing the numbers after the student disables it.
-      trackingStart: catchUp ? f.trackingStart || "" : "",
-      baselines: catchUp ? baselines : {},
-    });
+    if (f.semesterStart && f.semesterEnd && f.semesterStart > f.semesterEnd) {
+      return flashErr("Semester start must be on or before the end date.");
+    }
+    setSaving(true);
+    let res;
+    try {
+      res = await api.saveSettings({
+        firstName: f.firstName, age: String(f.age || ""), email: f.email,
+        institutionType: f.institutionType, institutionName: f.institutionName, className: f.className,
+        division: f.division, semester: f.semester, timetableName: f.timetableName, batchName: f.batchName,
+        semesterStart: f.semesterStart, semesterEnd: f.semesterEnd,
+        minPercent: +f.minPercent, labPercent: +f.labPercent, targetPercent: +f.targetPercent,
+        attendanceMode: f.attendanceMode,
+        // Turning catch-up off clears both halves, so a stale baseline can never
+        // keep skewing the numbers after the student disables it.
+        trackingStart: catchUp ? f.trackingStart || "" : "",
+        baselines: catchUp ? baselines : {},
+        reminderEnabled: !!f.reminderEnabled,
+        reminderTime: f.reminderTime || "20:00",
+      });
+    } catch (e) {
+      setSaving(false);
+      return flashErr(`Could not save: ${String((e as any)?.message ?? e)}`);
+    }
+    setSaving(false);
     refresh();
+    if (res && res.ok === false) return flashErr(res.error || "Could not save settings.");
     setSaved(true); setTimeout(() => setSaved(false), 2200);
+  };
+
+  // Start-up applies immediately (it changes an OS setting), independent of Save.
+  const toggleAutostart = async (v: boolean) => {
+    set("autostartEnabled", v);
+    try {
+      const res = await api.setAutostart(v);
+      if (res && res.ok === false) { set("autostartEnabled", !v); flashErr(res.error || "Could not change start-up setting."); }
+      refresh();
+    } catch (e) {
+      set("autostartEnabled", !v);
+      flashErr(`Could not change start-up setting: ${String((e as any)?.message ?? e)}`);
+    }
+  };
+
+  const testReminder = async () => {
+    try {
+      await api.testReminder();
+      setNote(isTauri() ? "Test notification sent — check your Windows notifications." : "Notifications only work in the desktop app.");
+    } catch (e) {
+      setNote(`Could not show a notification: ${String((e as any)?.message ?? e)}`);
+    }
+    setTimeout(() => setNote(null), 4500);
   };
 
   const inst = /school/i.test(f.institutionType || "") ? "school" : "college";
@@ -116,8 +157,46 @@ export function Settings() {
           </AnimatedCard>
         </motion.div>
 
+        <motion.div variants={rise}>
+          <AnimatedCard spotlight={false}>
+            <SectionTitle icon={<Bell className="w-5 h-5" />}>Reminders & start-up</SectionTitle>
+            <div className="space-y-4">
+              <ToggleRow
+                title="Evening reminder"
+                desc="A notification telling you whether tomorrow is a class day and if you should go. While this is on, closing the window keeps WOLF running in the system tray."
+                checked={!!f.reminderEnabled} onChange={(v) => set("reminderEnabled", v)} />
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="w-40">
+                  <Label>Remind me at</Label>
+                  <input type="time" value={f.reminderTime || "20:00"} disabled={!f.reminderEnabled}
+                    onChange={(e) => set("reminderTime", e.target.value)} className="field disabled:opacity-50" />
+                </div>
+                <Button variant="secondary" onClick={testReminder} icon={<Bell className="w-4 h-4" />}>Send a test</Button>
+              </div>
+              {note && <p className="text-sm font-semibold text-[var(--text-2)]">{note}</p>}
+              <ToggleRow
+                icon={<Power className="w-4 h-4" />}
+                title="Start with Windows"
+                desc="Launch WOLF minimised to the tray when you sign in, so reminders arrive without opening the app. Applies immediately."
+                checked={!!f.autostartEnabled} onChange={toggleAutostart} />
+            </div>
+          </AnimatedCard>
+        </motion.div>
+
+        {st?.meta?.dataPath && (
+          <motion.div variants={rise}>
+            <div className="flex items-start gap-3 px-4 py-3 rounded-[var(--r)] bg-[var(--surface-2)] border border-[var(--border)] text-xs font-semibold text-[var(--text-3)]">
+              <HardDrive className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                Your data is stored only on this device: <span className="font-mono break-all text-[var(--text-2)]">{st.meta.dataPath}</span>
+                {st.meta.version && <> · v{st.meta.version}</>}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <motion.div variants={rise} className="flex justify-end pb-8">
-          <Button size="lg" onClick={save} icon={<Check className="w-5 h-5" />}>Save changes</Button>
+          <Button size="lg" onClick={save} disabled={saving} icon={<Check className="w-5 h-5" />}>{saving ? "Saving…" : "Save changes"}</Button>
         </motion.div>
       </motion.div>
 
@@ -128,7 +207,29 @@ export function Settings() {
             <Check className="w-5 h-5" /> Settings saved
           </motion.div>
         )}
+        {err && (
+          <motion.div initial={{ opacity: 0, y: 30, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20 }}
+            role="alert"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3.5 rounded-[var(--r)] bg-[var(--danger)] text-white font-bold shadow-[var(--shadow-lg)] max-w-[90vw]">
+            <AlertTriangle className="w-5 h-5 shrink-0" /> {err}
+          </motion.div>
+        )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function ToggleRow({ title, desc, checked, onChange, icon }: { title: string; desc: string; checked: boolean; onChange: (v: boolean) => void; icon?: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 p-4 rounded-[var(--r)] bg-[var(--surface-2)] border border-[var(--border)]">
+      <div className="min-w-0">
+        <div className="font-black text-[15px] flex items-center gap-2">{icon}{title}</div>
+        <p className="text-sm font-medium text-[var(--text-2)] mt-1">{desc}</p>
+      </div>
+      <button type="button" role="switch" aria-checked={checked} aria-label={title} onClick={() => onChange(!checked)}
+        className={`relative w-12 h-7 rounded-full shrink-0 transition-colors ${checked ? "bg-[var(--accent)]" : "bg-[var(--surface-3)]"}`}>
+        <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
+      </button>
     </div>
   );
 }

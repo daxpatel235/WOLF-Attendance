@@ -158,11 +158,16 @@ every subject still finishes safely above its required attendance.
 wolf-attendance/
 ├─ index.html              Vite entry
 ├─ src/                    React + TypeScript UI
-│  ├─ App.tsx              all views + the manual timetable builder
+│  ├─ App.tsx              app shell, onboarding gate, load-error screen
+│  ├─ pages/               Dashboard, Timetable, Calendar, Settings, …
+│  ├─ components/          layout, shared widgets, UI primitives
+│  ├─ lib/                 timetable builder logic, persistence hook, utils
+│  ├─ store/               app state (React context)
 │  ├─ analytics.ts         pure maths: heatmap, streaks, XP/badges, CGPA
 │  ├─ api.ts               data layer — thin wrappers over Tauri `invoke`
 │  ├─ types.ts             shared types (mirror the Rust structs)
-│  └─ index.css · main.tsx
+│  └─ fonts.ts · index.css · main.tsx
+├─ wolf-core/              pure-Rust planner algorithm + its test suite
 └─ src-tauri/              Rust backend (Tauri 2)
    ├─ src/
    │  ├─ lib.rs            Tauri builder — manages state, registers commands
@@ -178,8 +183,9 @@ wolf-attendance/
 
 ## 🛠 Develop
 
-**Prerequisites:** [Node.js](https://nodejs.org) 18+, the [Rust toolchain](https://rustup.rs)
+**Prerequisites:** [Node.js](https://nodejs.org) **22.12+** (LTS), the [Rust toolchain](https://rustup.rs)
 (stable MSVC on Windows), and the WebView2 runtime (preinstalled on Windows 10/11).
+See **[BUILD_WINDOWS.md](BUILD_WINDOWS.md)** for a step-by-step guide to producing the `.exe`.
 
 ```bash
 npm install            # frontend deps (React, Vite, Tauri CLI)
@@ -189,8 +195,17 @@ npm run tauri dev      # compiles Rust, launches the app with hot-reloaded UI
 Frontend-only checks:
 
 ```bash
-npm run typecheck      # tsc --noEmit
+npm run typecheck      # tsc --noEmit (app + vite config)
+npm test               # Vitest — timetable builder + analytics
 npm run build          # type-check + vite build → dist/
+npm run check          # all three
+```
+
+Rust checks:
+
+```bash
+cd wolf-core && cargo test            # planner algorithm (incl. 2000-scenario fuzz)
+cd src-tauri && cargo test            # settings validation, storage, reminders
 ```
 
 ---

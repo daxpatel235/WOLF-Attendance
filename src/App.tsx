@@ -46,9 +46,27 @@ function LoadingScreen() {
   );
 }
 
-export default function App() {
-  const { st, view, loading } = useApp();
+function ErrorScreen({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="fixed inset-0 grid place-items-center overflow-hidden p-6">
+      <BackgroundFX />
+      <div className="relative max-w-md text-center flex flex-col items-center gap-4 glass rounded-[var(--r-lg)] p-8 shadow-[var(--shadow-lg)]">
+        <Mascot size={72} />
+        <h1 className="text-2xl font-black font-display">WOLF couldn't load your data</h1>
+        <p className="text-sm font-medium text-[var(--text-2)] break-words">{message}</p>
+        <button onClick={onRetry}
+          className="mt-2 px-5 py-2.5 rounded-[var(--r)] bg-[image:var(--grad)] text-[var(--accent-contrast)] font-bold shadow-[var(--shadow-sm)]">
+          Try again
+        </button>
+      </div>
+    </div>
+  );
+}
 
+export default function App() {
+  const { st, view, loading, error, refresh } = useApp();
+
+  if (!loading && !st && error) return <TooltipProvider><ErrorScreen message={error} onRetry={refresh} /></TooltipProvider>;
   if (loading || !st) return <TooltipProvider><LoadingScreen /></TooltipProvider>;
 
   // ── Auth / onboarding gate ──

@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Set up Rust (stable)
@@ -44,6 +44,9 @@ jobs:
       # breakage in seconds, without waiting on the Rust compile.
       - name: Typecheck & bundle frontend
         run: npm run build
+
+      - name: Frontend tests
+        run: npm test
 
       # wolf-core is pure Rust (chrono only), so it needs none of the Tauri
       # system libraries and tests fine on Linux. This is the suite that
@@ -71,7 +74,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Set up Rust (stable MSVC)
@@ -95,7 +98,11 @@ jobs:
 
       - name: src-tauri — clippy
         working-directory: src-tauri
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: src-tauri — tests
+        working-directory: src-tauri
+        run: cargo test
 
       - name: Build Tauri app (frontend + Rust + installers)
         run: npm run tauri build

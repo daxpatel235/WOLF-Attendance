@@ -16,15 +16,10 @@ export function Login() {
 
   const finish = async () => {
     setBusy(true);
-    try { await api.saveSettings({ onboarded: true }); } catch { /* mock */ }
-    if (!(window as any).__TAURI_INTERNALS__) {
-      const raw = localStorage.getItem("wolf_state");
-      const s = raw ? JSON.parse(raw) : { settings: {} };
-      s.settings = { ...(s.settings || {}), onboarded: true };
-      localStorage.setItem("wolf_state", JSON.stringify(s));
-    }
+    try { await api.saveSettings({ onboarded: true }); } catch (e) { console.error(e); }
     go("dashboard");
-    setTimeout(refresh, 120);
+    refresh();
+    setBusy(false);
   };
 
   return (
