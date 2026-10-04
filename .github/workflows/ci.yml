@@ -167,6 +167,11 @@ jobs:
           pattern: installers-*
           merge-multiple: true
 
+      - name: Flatten assets
+        run: |
+          find release-assets -mindepth 2 -type f -exec mv {} release-assets/ \;
+          find release-assets -mindepth 1 -type d -empty -delete
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
