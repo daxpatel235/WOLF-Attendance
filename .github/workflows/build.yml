@@ -5,6 +5,10 @@ name: CI
 # published from a commit that fails its own tests.
 on:
   push:
+    tags:
+      - 'v*'
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -142,7 +146,7 @@ jobs:
     name: Upload to GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -154,8 +158,7 @@ jobs:
           pattern: installers-*
           merge-multiple: true
 
-      - name: Upload to Release v3.1.1
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload v3.1.1 release-assets/* --clobber
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
