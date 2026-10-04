@@ -1,7 +1,7 @@
 {
   "name": "wolf-attendance",
   "productName": "WOLF Attendance",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "Minimum-days attendance planner — tells you the fewest college days to attend while keeping every subject (lectures and labs) above its attendance requirement. Tauri + React + Rust.",
   "author": "Patel",
   "license": "MIT",
