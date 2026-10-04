@@ -40,33 +40,46 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # Typechecks with `tsc --noEmit` and then bundles — catches frontend
-      # breakage in seconds, without waiting on the Rust compile.
+      # Typechecks with `tsc --noEmit` and then bundles
       - name: Typecheck & bundle frontend
         run: npm run build
 
       - name: Frontend tests
         run: npm test
 
-      # wolf-core is pure Rust (chrono only), so it needs none of the Tauri
-      # system libraries and tests fine on Linux. This is the suite that
-      # actually guards the attendance algorithm.
-      - name: wolf-core — format
+      # wolf-core is pure Rust (chrono only)
+      - name: wolf-core - format
         working-directory: wolf-core
         run: cargo fmt --check
 
-      - name: wolf-core — clippy
+      - name: wolf-core - clippy
         working-directory: wolf-core
         run: cargo clippy --all-targets -- -D warnings
 
-      - name: wolf-core — tests (incl. 2000-scenario fuzz)
+      - name: wolf-core - tests
         working-directory: wolf-core
         run: cargo test
 
   build:
-    name: Windows installers
+    name: Installers (${{ matrix.name }})
     needs: check
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            name: windows-arm64
+          - os: macos-latest
+            target: universal-apple-darwin
+            name: macos-universal
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: linux-x64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,10 +90,16 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Set up Rust (stable MSVC)
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          targets: ${{ matrix.target == 'universal-apple-darwin' && 'x86_64-apple-darwin,aarch64-apple-darwin' || matrix.target }}
 
       - name: Cache Rust build
         uses: swatinem/rust-cache@v2
@@ -90,28 +109,53 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # The Tauri crate only compiles on a platform with its system webview, so
-      # these two gates live here rather than in `check`.
-      - name: src-tauri — format
-        working-directory: src-tauri
-        run: cargo fmt --check
+      - name: Build Tauri app
+        run: npm run tauri build -- --target ${{ matrix.target }}
 
-      - name: src-tauri — clippy
-        working-directory: src-tauri
-        run: cargo clippy --all-targets -- -D warnings
-
-      - name: src-tauri — tests
-        working-directory: src-tauri
-        run: cargo test
-
-      - name: Build Tauri app (frontend + Rust + installers)
-        run: npm run tauri build
-
-      - name: Upload installers
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: wolf-attendance-installers
-          if-no-files-found: error
+          name: installers-${{ matrix.name }}
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.name }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+
+      - name: Upload artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.name }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+
+  publish:
+    name: Upload to GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: installers-*
+          merge-multiple: true
+
+      - name: Upload to Release v3.1.1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v3.1.1 release-assets/* --clobber
